@@ -203,10 +203,22 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
 
 ## Phase 2 — Firebase 同登入
 
-- [ ] Task 05 — 建立 Firebase 開發環境。
+- [x] Task 05 — complete：建立 Firebase 開發環境。
   - 做：逐步設定 project、Web App、Google provider、Firestore；解釋 region、authorized domains 同環境變數。
   - 檔案：`.env.example`、本機 `.env.local`、`.gitignore`。
   - 驗收：必要設定齊全；本機環境檔唔會提交；未用寬鬆公開 Rules。
+  - 進度：已建立 `.env.example`；使用者已填好 `.env.local` 四個必要值，並確認該檔案被 Git 忽略。Authentication service 已啟用，公開設定檢查 HTTP 200；`localhost` 同 Firebase auth domain 均已授權。Google provider 已啟用，未使用嘅 Email/Password provider 已由使用者停用。
+  - 預設決定：project display name 用 `Progress Tracker`；唔開 Google Analytics、Firebase Hosting 或 Storage；Firestore 用 `(default)`、Native／Standard、Production mode，region 用 `asia-east2`（Hong Kong）。建立前如 Console 顯示收費或其他不可預期選項，先停低處理。
+  - 環境變數：只保留 Task 06 初始化 Auth／Firestore 需要嘅 Web App config；全部加 `NEXT_PUBLIC_`，代表會進入 browser bundle，唔可以放真正秘密。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `.env.example`；使用者建立本機 `.env.local`；更新 `.gitignore` 同本文件。Firebase Console 設定唔會產生 repository 檔案。
+  - Firebase 設定：Web App config 已加入本機環境；Authentication 只啟用 Google provider；`localhost` 同 Firebase auth domain 已授權。
+  - Firestore 設定：建立 `(default)` Standard database，region 為 `asia-east2`（Hong Kong），使用 Production mode；冇啟用付費 Scheduled backups。
+  - 驗收結果：Firebase Authentication 公開設定檢查 HTTP 200；`.env.local` 已被 Git 忽略；Firestore Console 顯示 database ready；Production mode 預設拒絕第三方讀寫，冇使用 Test mode 公開 Rules。
+  - 教學重點：`NEXT_PUBLIC_` Firebase Web App config 會送到瀏覽器，係 project 識別設定而唔係 server secret；authorized domains 控制可發起登入嘅網域；Firestore region 建立後不能更改，應揀近主要使用者嘅地區。
+  - 理解問題：① 點解 `.env.local` 唔應該提交，但 Firebase Web App config 又唔算真正秘密？② 點解我哋揀 Production mode，而唔用較方便嘅 Test mode？
+  - 理解確認：Firebase Web App config 係前端連接 Firebase project 嘅識別資料，瀏覽器使用時本身就會看得到；真正安全界線係 Authentication 同 Firestore Security Rules。`.env.local` 仍然唔提交，因為它屬於個別環境設定，亦避免日後意外混入真正秘密。Production mode 由拒絕所有讀寫開始，再逐步加入所需 Rules；Test mode 初始會暫時開放資料庫，容易意外暴露資料。使用者已理解。
+  - 下一步：等使用者理解後再做 Task 06。
 
 - [ ] Task 06 — Firebase 初始化。
   - 做：安裝 Firebase SDK，只初始化一次並 export Auth／Firestore；解釋 client config 同真正秘密嘅分別。
@@ -420,4 +432,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 04 已完成，先理解 Button、theme tokens 同 `asChild`。** 下一個實作係 Task 05（建立 Firebase 開發環境），等使用者明確要求先開始。
+**Task 05 已完成。** 下一個實作係 Task 06（Firebase 初始化），等使用者明確要求先開始。
