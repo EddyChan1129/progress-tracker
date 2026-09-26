@@ -176,15 +176,30 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解問題：① 想改首頁標題應改邊個檔案？② `npm run dev` 同 `npm run build` 有咩分別？
   - 下一步：停喺 Task 02 講解，等使用者要求先開始 Task 03。
 
-- [ ] Task 03 — 用兩個頁面學 routing。
+- [x] Task 03 — complete：用兩個頁面學 routing。
   - 做：建立 login 同 dashboard 最小頁面，用 Link 連接；解釋 layout、page、route group。
   - 檔案：`src/app/(auth)/login/page.tsx`、`src/app/(app)/dashboard/page.tsx`。
   - 驗收：兩個 URL 可直接開啟；你分得清 URL 同資料夾路徑。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/app/(auth)/login/page.tsx`、`src/app/(app)/dashboard/page.tsx`；更新 `src/app/page.tsx` 加登入頁入口，同更新本文件。共用現有 root layout，冇新增套件。
+  - 驗收結果：lint、TypeScript、production build 通過；`/`、`/login`、`/dashboard` 均 HTTP 200，內容同連結正確；瀏覽器確認首頁可前往 login，再前往 dashboard。
+  - 教學重點：`page.tsx` 定義頁面；`layout.tsx` 包住頁面；`(auth)`／`(app)` 只係 route group，唔進入 URL、唔會自動提供登入保護；`Link` 嘅 href 指向 URL。
+  - 理解問題：① `(auth)/login/page.tsx` 對應 `/login` 定 `/auth/login`？② `Link href="/dashboard"` 嘅 href 應寫 URL 定檔案路徑？
+  - 下一步：等使用者理解後再做 Task 04。
 
-- [ ] Task 04 — 初始化 shadcn/ui。
+- [x] Task 04 — complete：初始化 shadcn/ui。
   - 做：只加入 Button，用現有 Tailwind 做基本樣式；講解生成嘅程式碼。
   - 檔案：`components.json`、必要 CSS／utility、`src/components/ui/button.tsx`、示範頁。
   - 驗收：按鈕正常显示，鍵盤 focus 清楚；冇安裝未使用元件。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `components.json`、`src/lib/utils.ts`、`src/components/ui/button.tsx`；更新 `src/app/globals.css`、`src/app/page.tsx`、`package.json`、lockfile 同本文件。
+  - 設定：採用 Radix UI + Nova、neutral theme、CSS variables、React Server Components；只加入 Button，冇加入其他 UI components。
+  - 實作：首頁保留 Next.js `Link`，用 `<Button asChild>` 將 Button 樣式交俾連結；冇加入 click handler 或 `use client`。
+  - 驗收結果：lint、TypeScript、production build 通過；瀏覽器確認 Button 正常顯示，Tab 鍵有清楚 focus ring，Enter 可前往 `/login`；npm audit 0 vulnerabilities。
+  - 工具備註：shadcn CLI 暫時未能自動辨認呢個手動建立嘅 Next.js 16 專案，所以按官方 manual installation 初始化，再由 CLI 生成 Button source。
+  - 教學重點：`components.json` 俾 CLI 知道生成位置／風格；`globals.css` 提供 theme tokens；`button.tsx` 定義 variants；`asChild` 避免產生 button 包住 link 嘅錯誤 HTML。
+  - 理解問題：① 點解導航仍然要用 `Link`，唔係只用 `<Button>`？② 想將按鈕改成 outline，應該傳入咩 prop？
+  - 下一步：等使用者理解後再做 Task 05。
 
 ## Phase 2 — Firebase 同登入
 
@@ -405,4 +420,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 02 已完成，先理解基礎檔案。** 下一個實作係 Task 03（兩個頁面學 routing），等使用者明確要求先開始。
+**Task 04 已完成，先理解 Button、theme tokens 同 `asChild`。** 下一個實作係 Task 05（建立 Firebase 開發環境），等使用者明確要求先開始。

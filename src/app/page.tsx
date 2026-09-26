@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
+
 export default function HomePage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
@@ -7,12 +9,9 @@ export default function HomePage() {
       <p className="mt-4 text-slate-600">
         記錄學習內容，同一步步達成學習目標。
       </p>
-      <Link
-        className="mt-6 inline-block text-blue-700 underline underline-offset-4"
-        href="/login"
-      >
-        前往登入頁
-      </Link>
+      <Button asChild className="mt-6">
+        <Link href="/login">前往登入頁</Link>
+      </Button>
     </main>
   );
 }
