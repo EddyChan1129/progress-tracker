@@ -248,14 +248,33 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：Next.js page 預設係 Server Component，可喺 server 執行 JavaScript 同組合 HTML，但唔可以直接使用 browser interactivity、state hooks 或 event handlers；只有需要 `useState`、`onClick`、Google popup 同 `useRouter` 嘅按鈕要做 Client Component。`finally` 無論登入成功、失敗或取消都會執行，適合統一將 loading 回復為 `false`。使用者已理解。
   - 下一步：等使用者理解後再做 Task 08。
 
-- [ ] Task 08 — 共用登入狀態。
+- [x] Task 08 — complete：共用登入狀態。
   - 做：加入最小 Auth provider，訂閱登入狀態並清理 listener；講解 Context 同初始 loading。
   - 檔案：`features/auth/components/`、相應 layout。
   - 驗收：refresh 後恢復登入狀態；未判定前唔閃出私人內容。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/features/auth/components/auth-provider.tsx`、`src/features/auth/components/auth-status.tsx`；更新 root layout、dashboard page 同本文件。
+  - 實作：root layout 用 `AuthProvider` 包住 children；provider 以單一 `onAuthStateChanged()` listener 保存 `user`／`isLoading`，並將 unsubscribe function 交俾 `useEffect()` cleanup；`useAuth()` 提供共用狀態。Dashboard 未判定時顯示 loading，判定後先顯示未登入或帳戶資料。
+  - 自動驗收：lint、TypeScript、production build 通過；已登出時開啟 Dashboard 正確顯示「目前未登入」。
+  - 手動驗收：登入後 Dashboard 顯示目前帳戶；refresh 後 Firebase session 成功恢復，仍顯示同一帳戶；私人帳戶資料只喺 `isLoading` 結束後渲染。
+  - 教學重點：Context 令多個 Client Components 共用同一份 auth state；`user === null` 同 `isLoading === true` 意思唔同；Effect cleanup 防止 component 重建時殘留 listener 或重複回調。
+  - 理解問題：① 點解初始狀態唔可以只用 `user = null`，仲需要獨立 `isLoading`？② `useEffect()` 點解要 return Firebase 提供嘅 unsubscribe function？
+  - 理解確認：`user = null`、`isLoading = true` 只代表 Firebase 仲未檢查完登入 session，唔代表已確定登出；`useState` 保存 component 狀態，Context 將狀態提供俾下面 components，`useContext`／`useAuth()` 負責讀取。listener cleanup 會喺 provider 移除時停止訂閱，避免殘留或重複 callback。使用者已理解核心資料流。
+  - 下一步：等使用者理解後再做 Task 09。
 
-- [ ] Task 09 — 私人頁面入口保護。
+- [x] Task 09 — complete：私人頁面入口保護。
   - 做：`(app)/layout.tsx` 處理登入中／未登入／已登入；未登入導向 login。
   - 驗收：直接輸入 dashboard URL 都要登入；講清楚呢層只係 UI，資料保護靠 Rules。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/app/(app)/layout.tsx`；更新本文件。
+  - 實作：共用 `(app)` layout 讀取 `useAuth()`；loading 或未登入時唔 render `children`，未登入確認後用 `router.replace("/login")`，已登入先顯示私人頁面。
+  - 自動驗收：lint、TypeScript、production build 通過；已登出時直接開 `/dashboard` 冇顯示 Dashboard 內容並自動返回 `/login`。
+  - 手動驗收：Google 登入後可正常進入 `/dashboard`；refresh 後仍留喺 `/dashboard`，冇錯誤導向 login。
+  - 安全界線：呢個 layout 只阻止未登入者經正常 UI 睇私人頁面，唔係資料庫授權；瀏覽器程式可以被繞過，Firestore 讀寫仍須由 Task 10 Security Rules 驗證。
+  - 教學重點：route group layout 可以一次保護所有 `(app)` pages；redirect 係 browser side effect，所以放入 `useEffect()`；未確認身份前唔 render `children`，避免私人內容閃現。
+  - 理解問題：① 點解 `isLoading` 時唔可以先 render Dashboard？② 點解有咗 layout redirect，仍然必須寫 Firestore Security Rules？
+  - 理解確認：`isLoading` 代表 Firebase 仲檢查緊 auth session，未可以顯示私人頁面；layout redirect 只係可被繞過嘅 browser UI。UID 唔係秘密，攻擊者可以自行組合另一個 UID 嘅 Firestore 路徑；Security Rules 必須喺 Firebase server 比較 `request.auth.uid` 同路徑 uid，真正拒絕未授權讀寫。使用者已理解。
+  - 下一步：等使用者理解後再做 Task 10。
 
 - [ ] Task 10 — Security Rules 基礎同 Emulator。
   - 做：建立 deny-by-default 規則同最小可執行測試；後續每個 collection 同寫入功能一起開放。
@@ -450,4 +469,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 07 已完成。** 下一個實作係 Task 08（共用登入狀態），等使用者明確要求先開始。
+**Task 09 已完成。** 下一個實作係 Task 10（Security Rules 基礎同 Emulator），等使用者明確要求先開始。
