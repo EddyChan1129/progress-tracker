@@ -2,7 +2,7 @@
 
 ## 合作方式
 
-- **一次只做一個 Task。** 今次只寫計劃，唔建立 application、唔安裝套件。
+- **一次只做一個 Task。** 只實作當次指定嘅 task，唔提前建立其他功能或安裝未用套件。
 - 每步開始前，先用廣東話解釋：做乜、點解需要、會改邊啲檔案、資料點樣流動，同有咩簡單替代方案。
 - 每步完成後，逐個重要檔案講解：責任、輸入、輸出、邊個呼叫、冇咗會影響乜；再解釋重要 function。
 - 每步提供簡單驗收方法；有非簡單邏輯就留低最小可執行檢查。涉及權限同資料一致性必須測試。
@@ -22,7 +22,9 @@
 | --- | --- |
 | 基礎 | Next.js 當時最新 stable、React、React DOM、TypeScript、Tailwind CSS、ESLint |
 | 第一個 UI 元件 | shadcn/ui 初始化，只加入即將使用嘅元件 |
-| Firebase 接駁 | Firebase Web SDK；Storage 功能留待 v0.2 |
+| Firebase 接駁 | Firebase Web SDK，只用 Authentication 同 Firestore |
+| Code 內容顯示 | 支援 fenced code blocks 嘅 Markdown renderer，實作嗰步先選最小合適套件 |
+| 圖片功能 | Cloudinary；需要 server 驗證 Firebase 身份時先加入 Firebase Admin SDK |
 | 第一個表單 | React Hook Form、Zod、@hookform/resolvers |
 | 日期顯示／統計 | date-fns |
 | 權限測試 | Firebase CLI／Emulator 及必要嘅 rules 測試工具 |
@@ -84,7 +86,7 @@ firebase.json
 task.md
 ```
 
-`(app)` 係 route group，唔會出現喺 URL。Page 負責組合畫面；有互動／登入狀態嘅部分先用 Client Component。第一版採用 Firebase Web SDK，唔額外建立 API、Admin SDK 或 server session 系統。
+`(app)` 係 route group，唔會出現喺 URL。Page 負責組合畫面；有互動／登入狀態嘅部分先用 Client Component。一般資料 CRUD 採用 Firebase Web SDK。做到 Cloudinary 時先加必要嘅 server Route Handlers、Firebase ID token 驗證同 Admin SDK；唔另外建立 server session 系統。Cloudinary server 設定放 `src/lib/cloudinary/server.ts`，圖片邏輯放 learning feature，API 入口放 `src/app/api/learning-images/`，實作時先逐個建立。
 
 ```text
 使用者填表
@@ -114,7 +116,7 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 | Document | 內容 |
 | --- | --- |
 | Category | userId、name、icon?、createdAt |
-| LearningEntry | userId、title、content、categoryId、imageUrls、relatedGoalId?、learnedAt、createdAt、updatedAt |
+| LearningEntry | userId、title、content（Markdown 字串）、categoryId、images、relatedGoalId?、learnedAt、createdAt、updatedAt |
 | Goal | userId、title、description?、categoryId、targetValue、currentValue、unit、startDate、targetDate、status、createdAt、updatedAt |
 | GoalUpdate | userId、goalId、progressDelta、note?、learningEntryId?、createdAt |
 
@@ -129,10 +131,14 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 7. **避免孤兒資料。** Category v0.1 只需要新增／列表，唔做刪除；Goal 刪除必須處理 updates 同 learning entry 關聯，唔可以只刪 parent document。
 8. **Goal 有進度後鎖定計量單位同 targetValue。** 第一版仍可編輯標題、描述、分類、日期；避免改目標定義令舊紀錄失去意思。要重新定義目標就新增 Goal。
 9. **Dashboard 先用簡單計算。** 統計範圍必須完整，唔可以用「最近幾筆」當全量計 streak。資料量大時先加入彙總設計。
-10. **圖片暫不實作。** v0.1 `imageUrls` 固定空陣列；Storage、上傳、預覽同 Storage Rules 放 v0.2。
+10. **圖片用 Cloudinary（2026-09-27 使用者要求）。** 加入 v0.1，先完成文字 CRUD，再分步做多圖選擇、預覽、上傳、顯示同刪除；唔用 Firebase Storage。`imageUrls` 改成 `images: { publicId: string; url: string }[]`，未做圖片前用空陣列。保留 publicId 方便管理／刪除 Cloudinary 資產；圖片本體放 Cloudinary，Firestore 只存圖片資料。
 11. **唔記錄學習時長（2026-09-27 使用者確認）。** 移除時長欄位、表單輸入、相關驗證及時長統計。保留學習日期、系統 timestamps 同按學習日期計算嘅 streak。Dashboard 只顯示最近記錄、active goals／進度同 streak。
+12. **學習內容支援貼 code。** `content` 仍係一個字串，以 Markdown 儲存文字同 fenced code blocks（三個反引號，可標語言）；輸入時保留縮排／換行，顯示時用 code block。先用 textarea 同預覽，唔做完整 rich-text editor、code 執行或語法高亮。圖片先作為該筆記錄嘅附件，唔要求手動貼圖片 URL 或放入 Markdown。
+13. **Cloudinary 安全同資料一致性。** API secret 只放 server；上傳簽名同刪除 API 驗證登入者、資產所有權同允許參數，限制圖片格式／大小／數量。Cloudinary 同 Firestore 冇共用 transaction，必須處理部分失敗、取消編輯同重試清理。簽名上傳唔代表圖片讀取私人：Task 21a 先確認圖片可見性；如需私人圖片，用 authenticated delivery 並按需產生存取 URL，唔將會過期 URL 當永久資料保存。
 
-以下每一項都係一次獨立教學／實作；只有 Task 00 已完成。
+Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation/client_side_uploading)、[Media access control](https://cloudinary.com/documentation/control_access_to_media)。
+
+以下每一項都係一次獨立教學／實作；完成狀態以各項標記為準。
 
 ## Phase 0 — 理解設計
 
@@ -145,8 +151,9 @@ users/{uid}/goals/{goalId}/updates/{updateId}
   - 做：用「新增一筆 LeetCode 學習記錄」說明 page、form、schema、service、Rules；確認上面資料模型同簡化約定。
   - 檔案：只按討論修訂 `task.md`。
   - 驗收：你能指出驗證、寫入、顯示各自喺邊一層，理解後先開始 foundation。
-  - 進度：已提供 LeetCode 記錄嘅分層講解；等待理解問題回覆及設計確認，暫未標記 complete。
+  - 進度：已提供 LeetCode 記錄嘅分層講解；理解問題未回覆，暫未標記 complete。使用者已明確要求開始 Task 02，按要求繼續，唔以答題作為阻擋。
   - 本步改動：只更新 `task.md`，未建立 application code。
+  - 已確認需求：唔記錄時長；content 支援貼 code；圖片上傳 Cloudinary。Code 同圖片留到各自小步實作，Task 01 仍等待資料流程理解確認。
   - 教學例子：輸入「Two Sum」、學習內容、分類 ID、學習日期 → Form 收集 → Zod 驗證 → learning service 加登入者 UID／系統時間並轉換日期 → Firestore Rules 檢查 → 儲存 → UI 顯示成功；列表經 service 讀取後顯示。
   - 核心分工：page 組合畫面；form 處理輸入同提示；schema 定義有效輸入；service 封裝資料存取；Rules 保護資料庫；type 描述開發時資料形狀。
   - 注意：service 喺 v0.1 仍然喺瀏覽器執行，唔係可信任後端；userId／時間由 service 加入只係責任分工，安全限制仍須由 Rules 強制執行。
@@ -154,10 +161,20 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 
 ## Phase 1 — 專案基礎
 
-- [ ] Task 02 — 建立最小 Next.js 專案。
+- [x] Task 02 — complete：建立最小 Next.js 專案。
   - 做：確認 Node／套件管理器，建立 App Router、TypeScript、Tailwind、ESLint；保留現有 skills 同 task.md。
   - 重點檔案：`package.json`、lockfile、`tsconfig.json`、`src/app/layout.tsx`、`src/app/page.tsx`、`src/app/globals.css`。
   - 驗收：本機首頁開到；解釋 dev、build、lint 指令用途。
+  - 完成日期：2026-09-27。
+  - 環境／版本：Node 24.19.0、npm 11.17.0；Next.js 16.3.6、React 19.3.0、TypeScript 6.0.3、Tailwind CSS 4.3.3；用 npm lockfile 固定實際依賴。
+  - 實際檔案：新增 `package.json`、`package-lock.json`、`tsconfig.json`、`eslint.config.mjs`、`postcss.config.mjs`、`src/app/layout.tsx`、`src/app/page.tsx`、`src/app/globals.css`；更新 `.gitignore` 同 `task.md`。`next-env.d.ts`／`.next` 由 Next.js 生成並忽略提交。
+  - Next.js 開發伺服器另外自動生成 `AGENTS.md` 同 `CLAUDE.md`，提示 coding agent 先讀本機對應版本文件；已保留，唔影響 application 執行。
+  - 驗收結果：lint 無警告、TypeScript 檢查通過、production build 通過；本機首頁 HTTP 200，回應包含預期標題同 Tailwind classes。
+  - 相容性限制：ESLint 10.11.0 與現用 eslint-plugin-react 實測不相容（getFilename 錯誤），暫用 ESLint 9.39.5。npm 已提示 ESLint 9 停止支援；待 Next.js lint 依賴相容後升級，唔為避錯而關閉規則。
+  - 指令：`npm run dev` 啟動開發；`npm run build` 建立正式版本；`npm start` 執行已 build 版本；`npm run lint` 檢查程式規則；`npm run typecheck` 檢查 TypeScript。
+  - 教學重點：Next.js 用 `layout.tsx` 包住 `page.tsx`；layout import 全域 CSS；PostCSS 處理 Tailwind；`package.json` 定義指令／依賴，lockfile 固定安裝結果。
+  - 理解問題：① 想改首頁標題應改邊個檔案？② `npm run dev` 同 `npm run build` 有咩分別？
+  - 下一步：停喺 Task 02 講解，等使用者要求先開始 Task 03。
 
 - [ ] Task 03 — 用兩個頁面學 routing。
   - 做：建立 login 同 dashboard 最小頁面，用 Link 連接；解釋 layout、page、route group。
@@ -237,7 +254,7 @@ users/{uid}/goals/{goalId}/updates/{updateId}
   - 驗收：日期轉換、無效日期、空白文字、超長標題都有最小檢查。
 
 - [ ] Task 17 — 新增記錄 service 同 Rules。
-  - 做：`createLearningEntry()`；service 處理 userId、timestamps、空 imageUrls；Rules 檢查 category 屬於本人。
+  - 做：`createLearningEntry()`；service 處理 userId、timestamps、空 images；Rules 檢查 category 屬於本人。
   - 檔案：`features/learning/services/learning.service.ts`、Rules 同測試。
   - 驗收：合法資料可寫入；跨帳戶、無效 category、空白標題被拒絕。
 
@@ -251,6 +268,11 @@ users/{uid}/goals/{goalId}/updates/{updateId}
   - 檔案：learning service、`LearningCard.tsx`、`LearningList.tsx`、learning page。
   - 驗收：顯示標題、分類、日期；loading／empty／error 正常。
 
+- [ ] Task 19a — 學習內容支援文字同 code。
+  - 做：textarea 保留貼上嘅縮排／換行；示範用三個反引號包住 code，加入安全 Markdown 預覽同記錄內容顯示。唔開放 raw HTML，限制連結協定；圖片只經附件功能顯示，唔自動載入 Markdown 外部圖片。
+  - 檔案：LearningForm、learning 內容顯示元件、必要依賴。
+  - 驗收：文字同多段 code 可共存，儲存／讀取／編輯後內容不變，長行可橫向捲動，HTML／script 唔會執行。
+
 - [ ] Task 20 — 編輯記錄。
   - 做：`getLearningEntry()`、`updateLearningEntry()`，沿用表單；Rules 禁止改 userId／createdAt。
   - 檔案：learning service、LearningForm、`learning/[id]/edit/page.tsx`、Rules 同測試。
@@ -260,6 +282,33 @@ users/{uid}/goals/{goalId}/updates/{updateId}
   - 做：`deleteLearningEntry()` 同確認 UI；成功先移除列表項目。
   - 檔案：learning service、刪除操作 UI、Rules 同測試。
   - 驗收：取消唔刪、確認先刪、失敗有提示；完成 Learning CRUD 理解問題。
+
+## Phase 5b — Cloudinary 圖片（每項獨立做）
+
+- [ ] Task 21a — 確認圖片存取方式同設定 Cloudinary。
+  - 做：確認公開 URL 或私人圖片需求，解釋 Firestore Rules 唔會保護 Cloudinary URL；設定 Cloudinary、server 環境變數，同圖片格式／大小／數量限制。
+  - 檔案：`.env.example`、本機環境設定、本文件。
+  - 驗收：可見性方案已確認，秘密冇用 NEXT_PUBLIC 前綴，未上傳圖片。
+
+- [ ] Task 21b — 選圖同本機預覽。
+  - 做：LearningForm 支援多圖選擇、預覽、移除待上傳圖片；釋放預覽 object URL。
+  - 檔案：learning 圖片輸入元件、LearningForm。
+  - 驗收：選圖、取消、移除正常；不合規檔案有提示；呢步唔連 Cloudinary。
+
+- [ ] Task 21c — Server 驗證身份同產生上傳簽名。
+  - 做：建立 Firebase ID token 驗證、Cloudinary server 設定同簽名 Route Handler；server 控制 UID 資產路徑、允許參數及 upload 限制。
+  - 檔案：`lib/firebase/admin.ts`、`lib/cloudinary/server.ts`、`app/api/learning-images/`、最小權限測試。
+  - 驗收：未登入／偽造 token／他人路徑被拒；secret 唔進入 client bundle；伺服器端上傳限制有效。
+
+- [ ] Task 21d — 上傳圖片同儲存關聯。
+  - 做：前端取得簽名後上傳 Cloudinary；server 核實上傳結果及所有權，再將 publicId 同所需圖片資料連到記錄；同步更新 schema／Rules，避免繞過 API 偽造受保護圖片欄位。
+  - 檔案：learning 圖片 service、必要 Route Handler、LearningForm、learning schema／types、Rules。
+  - 驗收：多圖可儲存並於 refresh 後顯示；圖片內容唔寫入 Firestore；上傳／關聯失敗保留文字並有明確重試方式，唔顯示假成功。
+
+- [ ] Task 21e — 編輯／刪除圖片同失敗清理。
+  - 做：記錄顯示圖片，編輯可新增／移除；刪記錄時處理資產。Server 驗證所有權；定義可重試清理順序，避免先刪仍被有效記錄引用嘅圖片。
+  - 檔案：learning 圖片顯示／編輯元件、圖片 service／API、記錄刪除流程。
+  - 驗收：取消編輯、部分上傳失敗、Firestore 寫入失敗、Cloudinary 刪除失敗、重試均有處理；無法刪他人圖片；圖片可見性符合 Task 21a 決定。
 
 ## Phase 6 — Goal CRUD
 
@@ -334,12 +383,12 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 ## Phase 9 — 收尾同部署
 
 - [ ] Task 36 — v0.1 整體驗收。
-  - 做：由登入到分類、記錄 CRUD、目標 CRUD、進度、dashboard 走一次；檢查 loading／empty／error、手機同鍵盤操作。
+  - 做：由登入到分類、記錄 CRUD、code 顯示、Cloudinary 多圖、目標 CRUD、進度、dashboard 走一次；檢查 loading／empty／error、手機同鍵盤操作。
   - 檔案：只改發現問題涉及嘅檔案，記錄驗收結果。
   - 驗收：lint／TypeScript／build／現有測試通過；以兩個帳戶驗證隔離、登出後唔殘留前一個帳戶資料。
 
 - [ ] Task 37 — Vercel 部署。
-  - 做：確認部署帳戶／repo，設定環境變數、Firebase authorized domain，部署已驗證嘅 Rules／必要 indexes，再部署 app。
+  - 做：確認部署帳戶／repo，設定 Firebase／Cloudinary server 環境變數、Firebase authorized domain，部署已驗證嘅 Rules／必要 indexes，再部署 app；驗證正式環境圖片流程。
   - 檔案：只加平台實際需要嘅設定；唔將秘密寫入 repo。
   - 驗收：正式網址登入同核心流程正常；若部署需要你登入／設定，完成先標記 complete。
 
@@ -350,11 +399,10 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 
 ## v0.2 待辦（今輪唔做）
 
-- Firebase Storage、圖片本機預覽、多圖上傳、Storage Rules、刪圖同上傳失敗清理。
 - 其他需求重新逐步規劃，唔自動開始。
 
 v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap、多人協作、Redux、複雜 caching、repository pattern、dependency injection、microservices。
 
 ## 下次由邊度開始
 
-**Task 01：先用一個真實例子講解資料流程。** 你睇明架構後，先去 Task 02 建立專案。
+**Task 02 已完成，先理解基礎檔案。** 下一個實作係 Task 03（兩個頁面學 routing），等使用者明確要求先開始。
