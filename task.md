@@ -1,0 +1,360 @@
+# Personal Learning Progress Tracker — 逐步學習計劃
+
+## 合作方式
+
+- **一次只做一個 Task。** 今次只寫計劃，唔建立 application、唔安裝套件。
+- 每步開始前，先用廣東話解釋：做乜、點解需要、會改邊啲檔案、資料點樣流動，同有咩簡單替代方案。
+- 每步完成後，逐個重要檔案講解：責任、輸入、輸出、邊個呼叫、冇咗會影響乜；再解釋重要 function。
+- 每步提供簡單驗收方法；有非簡單邏輯就留低最小可執行檢查。涉及權限同資料一致性必須測試。
+- 每步問 1–2 條理解問題；完成一個主要功能時問 3–5 條。
+- **完成同驗收後，將該項改成 `[x] Task NN — complete`，加完成日期、實際改動檔案、驗收結果。未驗證唔可以當完成。**
+- 標記完成後停低，等你話「明白，下一步」先開始下一個 Task。你問 code 時先講解，唔順便做下一步。
+- 如果一個 Task 實際太大，先喺呢份文件拆細，再只做第一小步。
+- 做到 Firebase Console、帳戶設定等需要你操作嘅部分，會提供具體步驟；未完成就保留未完成狀態。
+
+## 已確認現況（2026-09-27）
+
+目前目錄只有 `.agents/` 同 `skills-lock.json`；未有 `package.json`、application source 或專案依賴清單。Skills 並唔係 application 已安裝嘅 libraries。
+
+計劃按需要加入：
+
+| 時機 | 工具／套件 |
+| --- | --- |
+| 基礎 | Next.js 當時最新 stable、React、React DOM、TypeScript、Tailwind CSS、ESLint |
+| 第一個 UI 元件 | shadcn/ui 初始化，只加入即將使用嘅元件 |
+| Firebase 接駁 | Firebase Web SDK；Storage 功能留待 v0.2 |
+| 第一個表單 | React Hook Form、Zod、@hookform/resolvers |
+| 日期顯示／統計 | date-fns |
+| 權限測試 | Firebase CLI／Emulator 及必要嘅 rules 測試工具 |
+| 部署 | Vercel；用 Git integration，唔預先安裝部署 SDK |
+
+實作時先查官方文件確認版本、相容性同設定方式，唔喺計劃寫死未核實版本。
+
+## 建議架構（逐步建立，唔預先開空檔案）
+
+```text
+src/
+  app/
+    layout.tsx
+    globals.css
+    (auth)/login/page.tsx
+    (app)/
+      layout.tsx
+      dashboard/page.tsx
+      categories/page.tsx
+      learning/page.tsx
+      learning/new/page.tsx
+      learning/[id]/edit/page.tsx
+      goals/page.tsx
+      goals/new/page.tsx
+      goals/[id]/page.tsx
+      goals/[id]/edit/page.tsx
+  features/
+    auth/
+      components/
+      services/auth.service.ts
+    categories/
+      components/
+      services/category.service.ts
+      schemas/category.schema.ts
+      types/category.types.ts
+    learning/
+      components/
+      services/learning.service.ts
+      schemas/learning.schema.ts
+      types/learning.types.ts
+    goals/
+      components/
+      services/goal.service.ts
+      schemas/goal.schema.ts
+      types/goal.types.ts
+    dashboard/
+      components/
+      services/dashboard.service.ts
+  components/
+    ui/
+    layout/
+  lib/
+    firebase/client.ts
+    utils.ts                 # 只喺 shadcn 初始化需要時加入
+firestore.rules
+firestore.indexes.json       # 查詢需要時先加入 index
+firebase.json
+.env.example
+task.md
+```
+
+`(app)` 係 route group，唔會出現喺 URL。Page 負責組合畫面；有互動／登入狀態嘅部分先用 Client Component。第一版採用 Firebase Web SDK，唔額外建立 API、Admin SDK 或 server session 系統。
+
+```text
+使用者填表
+  → React Hook Form 收集輸入
+  → feature 內嘅 Zod schema 驗證
+  → submit handler 呼叫 feature service
+  → service 轉換資料／日期，呼叫 Firebase
+  → Firestore Security Rules 驗證權限及資料
+  → 寫入成功後 UI 更新；失敗就顯示可理解嘅錯誤
+```
+
+Firestore 查詢只放喺 feature service；UI 唔直接 import Firestore 操作。前端 schema 幫助輸入體驗，Security Rules 先係資料庫嘅保護，兩者唔可以互相取代。
+
+## 建議資料模型
+
+先用每個使用者自己嘅路徑，方便理解隔離方式：
+
+```text
+users/{uid}/categories/{categoryId}
+users/{uid}/learningEntries/{entryId}
+users/{uid}/goals/{goalId}
+users/{uid}/goals/{goalId}/updates/{updateId}
+```
+
+唔需要預先建立 `users/{uid}` profile document，子 collection 可以獨立存在。`id` 由 document ID 讀出；保留 prompt 嘅 `userId`，Rules 要求佢等於路徑 uid，更新時不可改。
+
+| Document | 內容 |
+| --- | --- |
+| Category | userId、name、icon?、createdAt |
+| LearningEntry | userId、title、content、categoryId、imageUrls、relatedGoalId?、learnedAt、createdAt、updatedAt |
+| Goal | userId、title、description?、categoryId、targetValue、currentValue、unit、startDate、targetDate、status、createdAt、updatedAt |
+| GoalUpdate | userId、goalId、progressDelta、note?、learningEntryId?、createdAt |
+
+### 對原 prompt 嘅具體調整／約定
+
+1. **Folder 結構保留 feature-based，但只建立用得到嘅檔案。** Auth 都當 feature；暫時唔需要空嘅 settings 或 utils 資料夾。
+2. **App 用 `Date`，Firestore 用 `Timestamp`。** Service 負責轉換，createdAt／updatedAt 用 server timestamp；未有 server timestamp 時 UI 要有處理。可選欄位冇值就省略，唔直接寫 `undefined`。
+3. **日期規則先定清楚。** v0.1 暫以使用者裝置本地時區計日、一星期由星期一開始；date input 喺本地日期轉換，避免 `YYYY-MM-DD` 被當 UTC 而移日。跨時區設定留待有需要先加。
+4. **Goal 進度唔可以直接 edit currentValue。** 每次更新用 transaction 同時新增 history 同更新 currentValue；Security Rules 要驗證兩者配對同增量一致。必要嘅內部配對欄位會喺該步先解釋。
+5. **Learning Entry 同 Goal 關聯唔代表自動加進度。** 一筆記錄可能包含多題，進度要明確輸入；改／刪 learning entry 唔會暗中改 goal history。
+6. **Goal 狀態集中處理。** 初始值 0；新增進度後未達標為 in_progress、達標為 completed。暫停／恢復係明確操作；暫停時不可新增進度。v0.1 只加正數進度，未加入更正／刪除歷史功能。
+7. **避免孤兒資料。** Category v0.1 只需要新增／列表，唔做刪除；Goal 刪除必須處理 updates 同 learning entry 關聯，唔可以只刪 parent document。
+8. **Goal 有進度後鎖定計量單位同 targetValue。** 第一版仍可編輯標題、描述、分類、日期；避免改目標定義令舊紀錄失去意思。要重新定義目標就新增 Goal。
+9. **Dashboard 先用簡單計算。** 統計範圍必須完整，唔可以用「最近幾筆」當全量計 streak。資料量大時先加入彙總設計。
+10. **圖片暫不實作。** v0.1 `imageUrls` 固定空陣列；Storage、上傳、預覽同 Storage Rules 放 v0.2。
+11. **唔記錄學習時長（2026-09-27 使用者確認）。** 移除時長欄位、表單輸入、相關驗證及時長統計。保留學習日期、系統 timestamps 同按學習日期計算嘅 streak。Dashboard 只顯示最近記錄、active goals／進度同 streak。
+
+以下每一項都係一次獨立教學／實作；只有 Task 00 已完成。
+
+## Phase 0 — 理解設計
+
+- [x] Task 00 — complete：檢查現有目錄，整理逐步計劃。
+  - 完成日期：2026-09-27。
+  - 改動：只新增 `task.md`。
+  - 驗收：已讀原 prompt、檢查現有檔案；未建立 app 或安裝套件。
+
+- [ ] Task 01 — 一齊行一次資料流程。
+  - 做：用「新增一筆 LeetCode 學習記錄」說明 page、form、schema、service、Rules；確認上面資料模型同簡化約定。
+  - 檔案：只按討論修訂 `task.md`。
+  - 驗收：你能指出驗證、寫入、顯示各自喺邊一層，理解後先開始 foundation。
+  - 進度：已提供 LeetCode 記錄嘅分層講解；等待理解問題回覆及設計確認，暫未標記 complete。
+  - 本步改動：只更新 `task.md`，未建立 application code。
+  - 教學例子：輸入「Two Sum」、學習內容、分類 ID、學習日期 → Form 收集 → Zod 驗證 → learning service 加登入者 UID／系統時間並轉換日期 → Firestore Rules 檢查 → 儲存 → UI 顯示成功；列表經 service 讀取後顯示。
+  - 核心分工：page 組合畫面；form 處理輸入同提示；schema 定義有效輸入；service 封裝資料存取；Rules 保護資料庫；type 描述開發時資料形狀。
+  - 注意：service 喺 v0.1 仍然喺瀏覽器執行，唔係可信任後端；userId／時間由 service 加入只係責任分工，安全限制仍須由 Rules 強制執行。
+  - 理解問題：① 標題留空應由邊層驗證、邊層顯示錯誤？繞過表單後邊層仍要阻止非法寫入？② 想改記錄卡片嘅顯示同想改 Firestore 儲存方式，分別主要改邊層？
+
+## Phase 1 — 專案基礎
+
+- [ ] Task 02 — 建立最小 Next.js 專案。
+  - 做：確認 Node／套件管理器，建立 App Router、TypeScript、Tailwind、ESLint；保留現有 skills 同 task.md。
+  - 重點檔案：`package.json`、lockfile、`tsconfig.json`、`src/app/layout.tsx`、`src/app/page.tsx`、`src/app/globals.css`。
+  - 驗收：本機首頁開到；解釋 dev、build、lint 指令用途。
+
+- [ ] Task 03 — 用兩個頁面學 routing。
+  - 做：建立 login 同 dashboard 最小頁面，用 Link 連接；解釋 layout、page、route group。
+  - 檔案：`src/app/(auth)/login/page.tsx`、`src/app/(app)/dashboard/page.tsx`。
+  - 驗收：兩個 URL 可直接開啟；你分得清 URL 同資料夾路徑。
+
+- [ ] Task 04 — 初始化 shadcn/ui。
+  - 做：只加入 Button，用現有 Tailwind 做基本樣式；講解生成嘅程式碼。
+  - 檔案：`components.json`、必要 CSS／utility、`src/components/ui/button.tsx`、示範頁。
+  - 驗收：按鈕正常显示，鍵盤 focus 清楚；冇安裝未使用元件。
+
+## Phase 2 — Firebase 同登入
+
+- [ ] Task 05 — 建立 Firebase 開發環境。
+  - 做：逐步設定 project、Web App、Google provider、Firestore；解釋 region、authorized domains 同環境變數。
+  - 檔案：`.env.example`、本機 `.env.local`、`.gitignore`。
+  - 驗收：必要設定齊全；本機環境檔唔會提交；未用寬鬆公開 Rules。
+
+- [ ] Task 06 — Firebase 初始化。
+  - 做：安裝 Firebase SDK，只初始化一次並 export Auth／Firestore；解釋 client config 同真正秘密嘅分別。
+  - 檔案：`src/lib/firebase/client.ts`。
+  - 驗收：開發 hot reload 冇重複初始化錯誤，設定缺失時有清楚提示。
+
+- [ ] Task 07 — Google 登入同登出。
+  - 做：Auth service 封裝登入／登出，login page 加按鈕、loading 同錯誤訊息。
+  - 檔案：`features/auth/services/auth.service.ts`、login page／登入元件。
+  - 驗收：可登入、登出；取消 popup 後可以重試，唔會一直 loading。
+
+- [ ] Task 08 — 共用登入狀態。
+  - 做：加入最小 Auth provider，訂閱登入狀態並清理 listener；講解 Context 同初始 loading。
+  - 檔案：`features/auth/components/`、相應 layout。
+  - 驗收：refresh 後恢復登入狀態；未判定前唔閃出私人內容。
+
+- [ ] Task 09 — 私人頁面入口保護。
+  - 做：`(app)/layout.tsx` 處理登入中／未登入／已登入；未登入導向 login。
+  - 驗收：直接輸入 dashboard URL 都要登入；講清楚呢層只係 UI，資料保護靠 Rules。
+
+- [ ] Task 10 — Security Rules 基礎同 Emulator。
+  - 做：建立 deny-by-default 規則同最小可執行測試；後續每個 collection 同寫入功能一起開放。
+  - 檔案：`firestore.rules`、`firebase.json`、最小 rules 測試檔同必要設定。
+  - 驗收：未登入同未開放 collection 嘅讀寫均被拒絕；之後每階段測本人、另一個帳戶、非法資料。
+
+## Phase 3 — App shell
+
+- [ ] Task 11 — 導覽同共用版面。
+  - 做：sidebar／窄畫面導覽、主內容區、登出按鈕；功能未做好嘅頁面只放清楚 placeholder。
+  - 檔案：`components/layout/`、`(app)/layout.tsx`、必要 page。
+  - 驗收：Dashboard、Categories、Learning、Goals 可切換；手機可用，鍵盤可操作。
+
+## Phase 4 — Categories
+
+- [ ] Task 12 — Category 型別同驗證。
+  - 做：加入 Category type／Zod schema；安裝表單所需依賴，解釋型別同 runtime validation 嘅分別。
+  - 檔案：`features/categories/types/category.types.ts`、`schemas/category.schema.ts`。
+  - 驗收：空白名稱被拒絕，合法名稱通過最小檢查；分類唔 hardcode。
+
+- [ ] Task 13 — Category service 同 Rules。
+  - 做：`createCategory()`、`getCategories()`；驗證 userId、欄位同本人存取，設定 server timestamp。
+  - 檔案：`features/categories/services/category.service.ts`、Rules 同測試。
+  - 驗收：本人可新增／讀取；另一個帳戶同非法欄位被拒絕。
+
+- [ ] Task 14 — 新增分類表單。
+  - 做：React Hook Form + zodResolver + shadcn UI；submit 呼叫 service，顯示 inline error／提交結果。
+  - 檔案：`features/categories/components/CategoryForm.tsx`、categories page。
+  - 驗收：成功寫入；錯誤保留輸入；提交中避免重複按。
+
+- [ ] Task 15 — 分類列表。
+  - 做：顯示本人分類，新增後刷新列表，補 loading／empty／error。
+  - 檔案：`features/categories/components/CategoryList.tsx`、categories page。
+  - 驗收：refresh 後分類仍存在；完成 Categories 理解問題後先繼續。
+
+## Phase 5 — Learning Entry CRUD
+
+- [ ] Task 16 — Learning Entry 型別同 schema。
+  - 做：建立模型；驗證 title、content、categoryId、日期；先無圖片同 goal 選擇 UI。
+  - 檔案：`features/learning/types/learning.types.ts`、`schemas/learning.schema.ts`。
+  - 驗收：日期轉換、無效日期、空白文字、超長標題都有最小檢查。
+
+- [ ] Task 17 — 新增記錄 service 同 Rules。
+  - 做：`createLearningEntry()`；service 處理 userId、timestamps、空 imageUrls；Rules 檢查 category 屬於本人。
+  - 檔案：`features/learning/services/learning.service.ts`、Rules 同測試。
+  - 驗收：合法資料可寫入；跨帳戶、無效 category、空白標題被拒絕。
+
+- [ ] Task 18 — 新增記錄表單。
+  - 做：LearningForm 輸入基本欄位，讀取分類選項；冇分類時引導先新增。
+  - 檔案：`features/learning/components/LearningForm.tsx`、`learning/new/page.tsx`。
+  - 驗收：填表到寫入成功行通；失敗保留內容，重複提交有保護。
+
+- [ ] Task 19 — 讀取記錄列表。
+  - 做：`getLearningEntries()`、日期排序、Card／List；按實際 query 加必要 index，同日記錄有穩定排序。
+  - 檔案：learning service、`LearningCard.tsx`、`LearningList.tsx`、learning page。
+  - 驗收：顯示標題、分類、日期；loading／empty／error 正常。
+
+- [ ] Task 20 — 編輯記錄。
+  - 做：`getLearningEntry()`、`updateLearningEntry()`，沿用表單；Rules 禁止改 userId／createdAt。
+  - 檔案：learning service、LearningForm、`learning/[id]/edit/page.tsx`、Rules 同測試。
+  - 驗收：預填、儲存、refresh 正常；不存在／非本人 ID 唔會顯示資料。
+
+- [ ] Task 21 — 刪除記錄。
+  - 做：`deleteLearningEntry()` 同確認 UI；成功先移除列表項目。
+  - 檔案：learning service、刪除操作 UI、Rules 同測試。
+  - 驗收：取消唔刪、確認先刪、失敗有提示；完成 Learning CRUD 理解問題。
+
+## Phase 6 — Goal CRUD
+
+- [ ] Task 22 — Goal 型別同 schema。
+  - 做：Goal／GoalUpdate type、建立目標 schema；明確定義單位、正數目標、日期順序同狀態轉換。
+  - 檔案：`features/goals/types/goal.types.ts`、`schemas/goal.schema.ts`。
+  - 驗收：targetValue <= 0、結束早於開始等非法輸入被拒絕。
+
+- [ ] Task 23 — 新增目標 service 同 Rules。
+  - 做：`createGoal()`，currentValue 初始 0、status 為 not_started；檢查 category 所有權。
+  - 檔案：`features/goals/services/goal.service.ts`、Rules 同測試。
+  - 驗收：無法靠偽造輸入建立非零 currentValue 或他人目標。
+
+- [ ] Task 24 — 新增目標表單。
+  - 做：GoalForm，只收集使用者可編輯欄位；schema 管理驗證。
+  - 檔案：`features/goals/components/GoalForm.tsx`、`goals/new/page.tsx`。
+  - 驗收：建立「10 日完成 10 題」目標，資料同輸入一致。
+
+- [ ] Task 25 — 目標列表同詳情。
+  - 做：`getGoals()`、`getGoal()`；顯示進度、單位、日期、狀態。進度條最多 100%，文字保留真實數值。
+  - 檔案：goal service、GoalCard／詳情元件、goals page、`goals/[id]/page.tsx`。
+  - 驗收：0%、達標、超標顯示合理；不存在／無權限狀態有處理。
+
+- [ ] Task 26 — 編輯／暫停／恢復目標。
+  - 做：`updateGoal()` 同狀態操作；有進度後鎖定 targetValue／unit；一般編輯不可改 currentValue。
+  - 檔案：goal service、GoalForm、edit page、Rules 同測試。
+  - 驗收：合法編輯正常；直接提交非法進度／狀態被 Rules 拒絕。
+
+- [ ] Task 27 — 刪除目標同關聯清理。
+  - 做：先解釋 deletion policy；無 updates／learning 關聯先可刪。有關聯時 v0.1 顯示原因並禁止刪除，唔靜默 cascade。
+  - 檔案：goal service、刪除 UI、必要關聯追蹤欄位、Rules 同測試。
+  - 驗收：空目標可刪；有關聯目標不可刪；Rules 必須同步防止繞過 UI 刪除。若安全維護關聯需要拆步，先拆再實作。
+
+## Phase 7 — Goal progress history
+
+- [ ] Task 28 — 設計一筆進度更新。
+  - 做：先用 +2 題示範 transaction、history、currentValue 同 Rules 配對；定義重試／重複點擊處理。
+  - 檔案：先更新本文件嘅進度規則，必要時拆細下一步。
+  - 驗收：你理解點解唔可以分開兩次普通寫入，亦理解 transaction 唔等於自動避免所有重複提交。
+
+- [ ] Task 29 — 寫入進度 service 同一致性 Rules。
+  - 做：`addGoalProgress()` 用 transaction 原子寫入 update 同新進度／狀態；history 不可直接修改。
+  - 檔案：goal service、goal schema、Rules 同測試。
+  - 驗收：並行 +2／+3 冇遺失；失敗唔只寫一半；只改 currentValue 或只新增 history 被拒；同一次操作重試唔重複計數。
+
+- [ ] Task 30 — 進度表單同 timeline。
+  - 做：GoalUpdateForm、`getGoalUpdates()`、GoalTimeline；顯示增量、備註、時間，成功後刷新。
+  - 檔案：goal service、相關 components、goal detail page。
+  - 驗收：提交 +2 後數值同 timeline 同步；暫停時不可新增；loading／error 完整。
+
+- [ ] Task 31 — Learning Entry 關聯 Goal。
+  - 做：LearningForm 加可選 goal；進度表單可選本人記錄。Service／Rules 驗證關聯，維護 Task 27 刪除保護。
+  - 檔案：learning／goal form、schema、service、Rules 同測試。
+  - 驗收：關聯／改關聯／取消關聯正常；他人／不存在目標被拒；刪記錄後 history 保留並顯示記錄已不存在。
+
+## Phase 8 — Simple dashboard
+
+- Task 32 — cancelled（2026-09-27）：按使用者要求取消時長統計，唔需要實作。保留編號，之後直接做 Task 33。
+
+- [ ] Task 33 — 最近記錄同 active goals。
+  - 做：重用現有 Card／services，顯示最近記錄、not_started／in_progress goals 同進度百分比。
+  - 檔案：dashboard components／page、必要 service query。
+  - 驗收：paused／completed 唔當 active；空資料有清楚提示。
+
+- [ ] Task 34 — Learning streak。
+  - 做：先定義「每日有至少一筆記錄」；今日未學時可由昨日開始算，未來記錄不計，同日去重。
+  - 檔案：dashboard 日期計算、最小測試、streak 顯示。
+  - 驗收：同日多筆、斷日、今日未學、跨月／跨年、空資料都有檢查；唔只用最近 N 筆估算。
+
+- Task 35 — cancelled（2026-09-27）：按使用者要求取消各分類時長統計，唔需要實作。保留編號，之後直接做 Task 36。
+
+## Phase 9 — 收尾同部署
+
+- [ ] Task 36 — v0.1 整體驗收。
+  - 做：由登入到分類、記錄 CRUD、目標 CRUD、進度、dashboard 走一次；檢查 loading／empty／error、手機同鍵盤操作。
+  - 檔案：只改發現問題涉及嘅檔案，記錄驗收結果。
+  - 驗收：lint／TypeScript／build／現有測試通過；以兩個帳戶驗證隔離、登出後唔殘留前一個帳戶資料。
+
+- [ ] Task 37 — Vercel 部署。
+  - 做：確認部署帳戶／repo，設定環境變數、Firebase authorized domain，部署已驗證嘅 Rules／必要 indexes，再部署 app。
+  - 檔案：只加平台實際需要嘅設定；唔將秘密寫入 repo。
+  - 驗收：正式網址登入同核心流程正常；若部署需要你登入／設定，完成先標記 complete。
+
+- [ ] Task 38 — 寫低自己理解嘅架構。
+  - 做：整理 README：啟動方式、環境變數名稱、資料流程、Rules、測試、已知限制。
+  - 檔案：`README.md`、本文件。
+  - 驗收：你可以跟 README 啟動，並指出新增一個欄位要改邊幾層；確認 v0.1 完成。
+
+## v0.2 待辦（今輪唔做）
+
+- Firebase Storage、圖片本機預覽、多圖上傳、Storage Rules、刪圖同上傳失敗清理。
+- 其他需求重新逐步規劃，唔自動開始。
+
+v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap、多人協作、Redux、複雜 caching、repository pattern、dependency injection、microservices。
+
+## 下次由邊度開始
+
+**Task 01：先用一個真實例子講解資料流程。** 你睇明架構後，先去 Task 02 建立專案。
