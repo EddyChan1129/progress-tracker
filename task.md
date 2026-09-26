@@ -220,10 +220,19 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：Firebase Web App config 係前端連接 Firebase project 嘅識別資料，瀏覽器使用時本身就會看得到；真正安全界線係 Authentication 同 Firestore Security Rules。`.env.local` 仍然唔提交，因為它屬於個別環境設定，亦避免日後意外混入真正秘密。Production mode 由拒絕所有讀寫開始，再逐步加入所需 Rules；Test mode 初始會暫時開放資料庫，容易意外暴露資料。使用者已理解。
   - 下一步：等使用者理解後再做 Task 06。
 
-- [ ] Task 06 — Firebase 初始化。
+- [x] Task 06 — complete：Firebase 初始化。
   - 做：安裝 Firebase SDK，只初始化一次並 export Auth／Firestore；解釋 client config 同真正秘密嘅分別。
   - 檔案：`src/lib/firebase/client.ts`。
   - 驗收：開發 hot reload 冇重複初始化錯誤，設定缺失時有清楚提示。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/lib/firebase/client.ts`；更新 `package.json`、`package-lock.json` 同本文件。
+  - 依賴：安裝 Firebase JavaScript SDK 12.19.0，使用 modular API；只 import App、Authentication 同 Firestore。
+  - 實作：從四個 `NEXT_PUBLIC_` 環境變數建立 config；缺少值時指出確實變數名稱；用 `getApps()`／`getApp()` 避免 hot reload 重複初始化；export `auth` 同 `db`。
+  - 驗收結果：正常 config 成功取得 Auth／Firestore；強制重複執行初始化通過，冇 `duplicate-app`；缺少 API key 時顯示預期錯誤；lint、TypeScript、production build 通過；npm audit 0 vulnerabilities。
+  - 教學重點：Firebase app 係共用設定容器；`auth` 同 `db` 係個別服務入口；modular imports 俾 bundler 移除未用 Firebase 功能。真正 server secret 唔可以加 `NEXT_PUBLIC_` 或放入呢個 client module。
+  - 理解問題：① 點解唔直接每次都呼叫 `initializeApp(firebaseConfig)`？② 之後登入功能同 Firestore service 應該分別 import 邊個 export？
+  - 理解確認：hot reload 可能重新執行 module，而原有 Firebase app 仍然存在；先用 `getApps()` 檢查並用 `getApp()` 重用，可避免重複初始化／`duplicate-app`。Google 登入使用 `auth`，Firestore 資料操作使用 `db`。使用者已理解。
+  - 下一步：等使用者理解後再做 Task 07。
 
 - [ ] Task 07 — Google 登入同登出。
   - 做：Auth service 封裝登入／登出，login page 加按鈕、loading 同錯誤訊息。
@@ -432,4 +441,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 05 已完成。** 下一個實作係 Task 06（Firebase 初始化），等使用者明確要求先開始。
+**Task 06 已完成。** 下一個實作係 Task 07（Google 登入同登出），等使用者明確要求先開始。
