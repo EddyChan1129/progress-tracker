@@ -234,10 +234,19 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：hot reload 可能重新執行 module，而原有 Firebase app 仍然存在；先用 `getApps()` 檢查並用 `getApp()` 重用，可避免重複初始化／`duplicate-app`。Google 登入使用 `auth`，Firestore 資料操作使用 `db`。使用者已理解。
   - 下一步：等使用者理解後再做 Task 07。
 
-- [ ] Task 07 — Google 登入同登出。
+- [x] Task 07 — complete：Google 登入同登出。
   - 做：Auth service 封裝登入／登出，login page 加按鈕、loading 同錯誤訊息。
   - 檔案：`features/auth/services/auth.service.ts`、login page／登入元件。
   - 驗收：可登入、登出；取消 popup 後可以重試，唔會一直 loading。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/features/auth/services/auth.service.ts`、`src/features/auth/components/sign-in-button.tsx`、`src/features/auth/components/sign-out-button.tsx`；更新 login／dashboard pages 同本文件。
+  - 實作：service 封裝 `signInWithPopup()` 同 `signOut()`；互動按鈕用細小 Client Components 處理 loading、disabled、錯誤提示及成功後 `router.replace()`，pages 保持 Server Components。
+  - 自動驗收：lint、TypeScript、production build 通過；本機 `/login` 正常顯示 Google 登入按鈕。
+  - 手動驗收：Google 登入成功，Firebase Authentication Users 顯示帳戶同獨立 User UID；登入後到 `/dashboard`；登出成功並返回 `/login`；關閉 Google popup 後顯示取消提示，按鈕恢復可按並可重試。
+  - 教學重點：`auth.service.ts` 集中 Firebase Auth 操作；Client Component 先可以使用 state、click handler 同 `useRouter()`；`finally` 無論成功或失敗都會清除 loading；Firebase Authentication 負責身份，之後 Firestore Rules 先負責資料隔離。
+  - 理解問題：① 點解 login page 本身唔需要加 `"use client"`，只係登入按鈕需要？② 點解清除 loading 要放喺 `finally`，唔只放喺 `catch`？
+  - 理解確認：Next.js page 預設係 Server Component，可喺 server 執行 JavaScript 同組合 HTML，但唔可以直接使用 browser interactivity、state hooks 或 event handlers；只有需要 `useState`、`onClick`、Google popup 同 `useRouter` 嘅按鈕要做 Client Component。`finally` 無論登入成功、失敗或取消都會執行，適合統一將 loading 回復為 `false`。使用者已理解。
+  - 下一步：等使用者理解後再做 Task 08。
 
 - [ ] Task 08 — 共用登入狀態。
   - 做：加入最小 Auth provider，訂閱登入狀態並清理 listener；講解 Context 同初始 loading。
@@ -441,4 +450,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 06 已完成。** 下一個實作係 Task 07（Google 登入同登出），等使用者明確要求先開始。
+**Task 07 已完成。** 下一個實作係 Task 08（共用登入狀態），等使用者明確要求先開始。
