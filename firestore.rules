@@ -1,0 +1,16 @@
+// 使用 Firestore Security Rules version 2 語法。
+rules_version = '2';
+
+// 以下規則只套用到 Cloud Firestore。
+service cloud.firestore {
+  // {database} 代表任何 Firestore database ID，例如目前使用嘅 (default)。
+  match /databases/{database}/documents {
+    // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。
+    // 例如：users/alice/learningEntries/entry-1。
+    match /{document=**} {
+      // false 代表條件永遠唔成立，所以所有 read 同 write 都會被拒絕。
+      // 之後每完成一個 feature，先為嗰個指定路徑加入較精確嘅 allow 規則。
+      allow read, write: if false;
+    }
+  }
+}

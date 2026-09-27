@@ -276,10 +276,19 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：`isLoading` 代表 Firebase 仲檢查緊 auth session，未可以顯示私人頁面；layout redirect 只係可被繞過嘅 browser UI。UID 唔係秘密，攻擊者可以自行組合另一個 UID 嘅 Firestore 路徑；Security Rules 必須喺 Firebase server 比較 `request.auth.uid` 同路徑 uid，真正拒絕未授權讀寫。使用者已理解。
   - 下一步：等使用者理解後再做 Task 10。
 
-- [ ] Task 10 — Security Rules 基礎同 Emulator。
+- [x] Task 10 — complete：Security Rules 基礎同 Emulator。
   - 做：建立 deny-by-default 規則同最小可執行測試；後續每個 collection 同寫入功能一起開放。
   - 檔案：`firestore.rules`、`firebase.json`、最小 rules 測試檔同必要設定。
   - 驗收：未登入同未開放 collection 嘅讀寫均被拒絕；之後每階段測本人、另一個帳戶、非法資料。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `firestore.rules`、`firebase.json`、`tests/firestore.rules.test.mjs`；更新 `package.json`、`package-lock.json` 同本文件。
+  - 依賴／指令：加入開發依賴 Firebase CLI 15.31.0 同 `@firebase/rules-unit-testing` 5.0.2；`npm run test:rules` 用 `emulators:exec` 自動啟動／停止 Firestore Emulator。
+  - 實作：Rules version 2 以 recursive match 預設拒絕全部 read／write；測試使用 `demo-progress-tracker`，避免連接正式 project；分別模擬未登入同已登入 `alice`，兩者對未開放 learning entry 路徑嘅讀寫都必須失敗。
+  - 驗收結果：rules suite 2 tests、4 個拒絕 request 全部通過；lint、TypeScript、production build 通過；production dependencies audit 0 vulnerabilities。Firebase CLI 開發依賴目前有 5 個 moderate transitive advisories，npm 建議嘅修復會降級 CLI，因此未套用破壞性 `--force` 修復。
+  - 部署狀態：今步只驗證本機 `firestore.rules`；正式 Firestore 已沿用 Console 建立時嘅 Production mode deny-all。repository rules 要到部署步驟先發佈，唔會因新增檔案自動同步。
+  - 教學重點：deny-by-default 代表未明確開放就拒絕；emulator 提供安全、可重複嘅本機測試；`authenticatedContext()` 只模擬身份，唔會自動獲得權限；`assertFails()` 證明 request 被 Rules 拒絕。
+  - 理解問題：① 點解測試使用 `demo-` project ID，而唔直接連正式 Firebase project？② 點解已登入嘅 `alice` 目前仍然讀寫失敗？
+  - 下一步：等使用者理解後再做 Task 11。
 
 ## Phase 3 — App shell
 
@@ -469,4 +478,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 09 已完成。** 下一個實作係 Task 10（Security Rules 基礎同 Emulator），等使用者明確要求先開始。
+**Task 10 已完成。** 下一個實作係 Task 11（導覽同共用版面），等使用者明確要求先開始。
