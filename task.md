@@ -321,10 +321,20 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解問題：① 如果使用者提交 `{ name: "   " }`，TypeScript 點解未必會阻止，但 Zod 可以阻止？② `Category` 同 `CategoryInput` 分別代表已儲存資料同表單輸入，邊個會有 `id`、`userId`、`createdAt`？
   - 下一步：等使用者理解後再做 Task 13。
 
-- [ ] Task 13 — Category service 同 Rules。
+- [x] Task 13 — complete：Category service 同 Rules。
   - 做：`createCategory()`、`getCategories()`；驗證 userId、欄位同本人存取，設定 server timestamp。
   - 檔案：`features/categories/services/category.service.ts`、Rules 同測試。
   - 驗收：本人可新增／讀取；另一個帳戶同非法欄位被拒絕。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/features/categories/services/category.service.ts`；更新 `firestore.rules`、`tests/firestore.rules.test.mjs` 同本文件。
+  - Service 實作：`createCategory()` 從 `auth.currentUser` 取得 UID、再次用 Zod parse 輸入、省略空 icon、用 `serverTimestamp()` 寫入本人 categories 路徑並回傳 document ID；`getCategories()` 只查目前使用者路徑，按 `createdAt` 由新到舊排列，將 Firestore `Timestamp` 轉成 app 使用嘅 `Date`。
+  - Rules 實作：只有已登入且 `request.auth.uid` 等於路徑 `userId` 先可讀取；create 另外要求 `userId`／`name`／`createdAt` 必需、`icon` 可選、禁止額外欄位、驗證字串內容同長度，並要求 `createdAt == request.time`。update／delete 同其他 collections 繼續 deny by default。
+  - 驗收結果：Firestore Rules 共 7 tests 通過；包括本人新增及 list、有／冇 icon、未登入、另一個帳戶、錯誤 owner、空白名稱、超長 icon、額外欄位、假 server time，以及未開放嘅 update／delete。Schema 3 tests、lint、TypeScript、production build 全部通過；production dependencies audit 0 vulnerabilities。
+  - 部署狀態：今步仍只用 Emulator 驗證本機 rules，未發佈到正式 Firebase；正式 database 繼續沿用 deny-all，避免未有 UI 前改動線上權限。
+  - 教學重點：service 負責方便同一致嘅資料操作，但 browser code 可以被繞過；Rules 用 `request.auth.uid`、路徑 UID 同 document `userId` 三者配對先係 server-side 權限。`serverTimestamp()` 由 Firebase 決定時間，Rules 用 `request.time` 阻止 client 偽造 `createdAt`。
+  - 理解問題：① 點解 `createCategory()` 唔接受由 component 傳入嘅 `userId`？② Zod 已檢查 name，點解 Rules 仲要再檢查？③ `serverTimestamp()` 同瀏覽器 `new Date()` 邊個較適合 `createdAt`，點解？
+  - 理解確認：使用者理解 service 從目前 auth user 取得 UID，而真正安全界線係 Rules 比較登入 token、路徑 UID 同 document userId；Zod 係可被繞過嘅前端 runtime validation，Rules 先係 Firebase server 授權；亦能分辨 `hasAll()` 要求必需欄位存在，而 `hasOnly()` 只禁止清單以外欄位，少咗清單內嘅可選欄位仍可通過。
+  - 下一步：等使用者明確要求先做 Task 14。
 
 - [ ] Task 14 — 新增分類表單。
   - 做：React Hook Form + zodResolver + shadcn UI；submit 呼叫 service，顯示 inline error／提交結果。
@@ -495,4 +505,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 12 已完成。** 下一個實作係 Task 13（Category service 同 Rules），等使用者明確要求先開始。
+**Task 13 已完成。** 下一個實作係 Task 14（新增分類表單），等使用者明確要求先開始。

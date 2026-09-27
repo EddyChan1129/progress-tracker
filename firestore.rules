@@ -5,6 +5,38 @@ rules_version = '2';
 service cloud.firestore {
   // {database} 代表任何 Firestore database ID，例如目前使用嘅 (default)。
   match /databases/{database}/documents {
+    // 檢查使用者已登入，而且登入 UID 同 URL 路徑入面嘅 userId 相同。
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // 檢查準備新增嘅 Category 欄位、型別同內容。
+    function isValidCategory(userId) {
+      let data = request.resource.data;
+
+      return data.keys().hasAll(['userId', 'name', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'name', 'icon', 'createdAt'])
+        && data.userId is string
+        && data.userId == userId
+        && data.name is string
+        && data.name == data.name.trim()
+        && data.name.size() > 0
+        && data.name.size() <= 50
+        && data.get('icon', '') is string
+        && data.get('icon', '') == data.get('icon', '').trim()
+        && data.get('icon', '').size() <= 10
+        && data.createdAt is timestamp
+        && data.createdAt == request.time;
+    }
+
+    match /users/{userId}/categories/{categoryId} {
+      // 本人可以讀取自己路徑入面嘅分類。
+      allow read: if isOwner(userId);
+
+      // 本人只可以新增通過上面資料檢查嘅分類。
+      allow create: if isOwner(userId) && isValidCategory(userId);
+    }
+
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。
     // 例如：users/alice/learningEntries/entry-1。
     match /{document=**} {

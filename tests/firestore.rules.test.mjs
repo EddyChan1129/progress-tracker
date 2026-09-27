@@ -3,9 +3,20 @@ import { after, before, describe, it } from "node:test";
 
 import {
   assertFails,
+  assertSucceeds,
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
 
 // 保存今次測試用嘅 Firebase 測試環境，俾所有 test 共用。
 let testEnv;
@@ -54,5 +65,107 @@ describe("deny-by-default Firestore rules", () => {
     // 驗證「已登入」唔代表自動有權限；兩個 request 仍然必須失敗。
     await assertFails(getDoc(entry));
     await assertFails(setDoc(entry, { title: "Two Sum" }));
+  });
+});
+
+describe("category Firestore rules", () => {
+  it("allow a user to create and list their own categories", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const category = doc(db, "users/alice/categories/leetcode");
+
+    await assertSucceeds(
+      setDoc(category, {
+        userId: "alice",
+        name: "LeetCode",
+        icon: "💻",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, "users/alice/categories/no-icon"), {
+        userId: "alice",
+        name: "閱讀",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(getDocs(collection(db, "users/alice/categories")));
+  });
+
+  it("reject category updates and deletes", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const category = doc(db, "users/alice/categories/leetcode");
+
+    await assertFails(updateDoc(category, { name: "New name" }));
+    await assertFails(deleteDoc(category));
+  });
+
+  it("reject unauthenticated category access", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    const category = doc(db, "users/alice/categories/private");
+
+    await assertFails(getDoc(category));
+    await assertFails(
+      setDoc(category, {
+        userId: "alice",
+        name: "Private",
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it("reject access to another user's categories", async () => {
+    const db = testEnv.authenticatedContext("bob").firestore();
+    const category = doc(db, "users/alice/categories/leetcode");
+
+    await assertFails(getDoc(category));
+    await assertFails(
+      setDoc(category, {
+        userId: "alice",
+        name: "Changed by Bob",
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it("reject invalid category data", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+
+    await assertFails(
+      setDoc(doc(db, "users/alice/categories/wrong-owner"), {
+        userId: "bob",
+        name: "Wrong owner",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/alice/categories/blank-name"), {
+        userId: "alice",
+        name: "   ",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/alice/categories/long-icon"), {
+        userId: "alice",
+        name: "LeetCode",
+        icon: "12345678901",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/alice/categories/extra-field"), {
+        userId: "alice",
+        name: "LeetCode",
+        color: "red",
+        createdAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "users/alice/categories/fake-time"), {
+        userId: "alice",
+        name: "LeetCode",
+        createdAt: Timestamp.fromMillis(0),
+      }),
+    );
   });
 });
