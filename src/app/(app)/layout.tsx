@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 
+import { AppNavigation } from "@/components/layout/app-navigation";
 import { useAuth } from "@/features/auth/components/auth-provider";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -23,5 +24,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  return children;
+  return (
+    <div className="min-h-screen md:grid md:grid-cols-[15rem_1fr]">
+      <AppNavigation />
+      <main className="min-w-0 px-6 py-10 sm:px-10 md:py-12">
+        <div className="mx-auto max-w-4xl">{children}</div>
+      </main>
+    </div>
+  );
 }

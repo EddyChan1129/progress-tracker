@@ -296,6 +296,10 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 做：sidebar／窄畫面導覽、主內容區、登出按鈕；功能未做好嘅頁面只放清楚 placeholder。
   - 檔案：`components/layout/`、`(app)/layout.tsx`、必要 page。
   - 驗收：Dashboard、Categories、Learning、Goals 可切換；手機可用，鍵盤可操作。
+  - 進度：已建立 responsive 共用 app shell；桌面係左側導覽，窄畫面係可橫向捲動嘅頂部導覽。加入 Dashboard、分類、學習記錄、目標四個連結、目前頁標示、共用登出按鈕同三個 placeholder pages。
+  - 實際改動：新增 `src/components/layout/app-navigation.tsx`、categories／learning／goals pages；更新 `(app)/layout.tsx`、dashboard page 同登出按鈕間距。
+  - 自動驗收：lint、TypeScript、production build 通過；build 成功產生 `/dashboard`、`/categories`、`/learning`、`/goals`；未登入時仍正確返回 `/login`。
+  - 待手動驗收：登入後逐個導覽四頁；縮窄瀏覽器確認導覽仍可使用；用 Tab／Enter 操作連結及登出按鈕。完成後先標記 complete。
 
 ## Phase 4 — Categories
 
@@ -478,4 +482,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 10 已完成。** 下一個實作係 Task 11（導覽同共用版面），等使用者明確要求先開始。
+**Task 11 實作完成，等待登入後手動驗收。** 驗收成功後先標記 complete，再停低等使用者要求 Task 12。

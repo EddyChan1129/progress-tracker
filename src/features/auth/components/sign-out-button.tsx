@@ -26,7 +26,7 @@ export function SignOutButton() {
   }
 
   return (
-    <div className="mt-6">
+    <div>
       <Button
         disabled={isLoading}
         onClick={handleSignOut}
@@ -36,7 +36,7 @@ export function SignOutButton() {
         {isLoading ? "登出中…" : "登出"}
       </Button>
       {errorMessage && (
-        <p className="mt-3 text-sm text-red-700" role="alert">
+        <p className="mt-2 text-sm text-red-700" role="alert">
           {errorMessage}
         </p>
       )}
