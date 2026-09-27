@@ -336,10 +336,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者理解 service 從目前 auth user 取得 UID，而真正安全界線係 Rules 比較登入 token、路徑 UID 同 document userId；Zod 係可被繞過嘅前端 runtime validation，Rules 先係 Firebase server 授權；亦能分辨 `hasAll()` 要求必需欄位存在，而 `hasOnly()` 只禁止清單以外欄位，少咗清單內嘅可選欄位仍可通過。
   - 下一步：等使用者明確要求先做 Task 14。
 
-- [ ] Task 14 — 新增分類表單。
+- [x] Task 14 — complete：新增分類表單。
   - 做：React Hook Form + zodResolver + shadcn UI；submit 呼叫 service，顯示 inline error／提交結果。
   - 檔案：`features/categories/components/CategoryForm.tsx`、categories page。
   - 驗收：成功寫入；錯誤保留輸入；提交中避免重複按。
+  - 進度：已建立 `CategoryForm`，使用 React Hook Form + zodResolver、shadcn Input／Button；name 同 icon 顯示 inline validation error，submit 時 disabled，成功後清空表單，Firebase 錯誤時保留輸入並顯示訊息。Categories page 保持 Server Component，只將互動表單設為 Client Component。
+  - 實際改動：新增 `src/features/categories/components/category-form.tsx`、`src/components/ui/input.tsx`；更新 categories page 同本文件。
+  - 自動驗收：schema 3 tests、lint、TypeScript、production build 通過；Firebase CLI 已登入，project ID 已設定。
+  - 完成日期：2026-09-27。
+  - 部署進度：使用者已批准發佈 Rules；加入並切換到 project-owner Firebase CLI 帳戶後，`firestore.rules` 編譯成功並已發佈到正式 `process-tracking-87407` Firestore。等待 `/categories` 手動驗收後先標記 complete。
+  - 手動驗收：使用者已在 `/categories` 成功新增 `LeetCode`；Firebase Console 確認 document 有自動 ID、server `createdAt`、`name` 同登入者 `userId`。
+  - 理解確認：使用者理解 page 冇互動可保持 Server Component，表單因 state／event／Firebase browser SDK 需要 Client Component；`zodResolver` 將 React Hook Form 輸入交俾 schema 並產生 field errors；`isSubmitting` disabled 防止重複 request；寫入失敗唔 reset，避免清走合法輸入，讓使用者可以重試。亦理解 schema 錯誤會在 `onSubmit` 前被 resolver 截停。
+  - 下一步：等使用者明確要求先開始 Task 15。
 
 - [ ] Task 15 — 分類列表。
   - 做：顯示本人分類，新增後刷新列表，補 loading／empty／error。
@@ -505,4 +513,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 13 已完成。** 下一個實作係 Task 14（新增分類表單），等使用者明確要求先開始。
+**Task 14 已完成。** 下一個實作係 Task 15（分類列表），等使用者明確要求先開始。
