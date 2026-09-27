@@ -292,21 +292,34 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
 
 ## Phase 3 — App shell
 
-- [ ] Task 11 — 導覽同共用版面。
+- [x] Task 11 — complete：導覽同共用版面。
   - 做：sidebar／窄畫面導覽、主內容區、登出按鈕；功能未做好嘅頁面只放清楚 placeholder。
   - 檔案：`components/layout/`、`(app)/layout.tsx`、必要 page。
   - 驗收：Dashboard、Categories、Learning、Goals 可切換；手機可用，鍵盤可操作。
   - 進度：已建立 responsive 共用 app shell；桌面係左側導覽，窄畫面係可橫向捲動嘅頂部導覽。加入 Dashboard、分類、學習記錄、目標四個連結、目前頁標示、共用登出按鈕同三個 placeholder pages。
   - 實際改動：新增 `src/components/layout/app-navigation.tsx`、categories／learning／goals pages；更新 `(app)/layout.tsx`、dashboard page 同登出按鈕間距。
   - 自動驗收：lint、TypeScript、production build 通過；build 成功產生 `/dashboard`、`/categories`、`/learning`、`/goals`；未登入時仍正確返回 `/login`。
-  - 待手動驗收：登入後逐個導覽四頁；縮窄瀏覽器確認導覽仍可使用；用 Tab／Enter 操作連結及登出按鈕。完成後先標記 complete。
+  - 完成日期：2026-09-27。
+  - 手動驗收：登入後四個頁面可切換；窄畫面導覽可使用；可用 Tab／Enter 操作連結同登出按鈕。
+  - 教學重點：route group 名稱唔會加入 URL，但資料夾層級會決定 layout 包裹範圍；`(app)/layout.tsx` 保留共用導覽，導航時由 `children` 換入目前 page；平排嘅 `(auth)` 唔會使用 `(app)/layout.tsx`。
+  - 理解確認：使用者知道 `AppNavigation` 由 `(app)/layout.tsx` 共用，導航時主要替換 `children`；亦理解 root layout 影響所有頁面，而 route-group layout 只影響自己資料夾下面嘅 routes。
+  - 下一步：等使用者明確要求先開始 Task 12。
 
 ## Phase 4 — Categories
 
-- [ ] Task 12 — Category 型別同驗證。
+- [x] Task 12 — complete：Category 型別同驗證。
   - 做：加入 Category type／Zod schema；安裝表單所需依賴，解釋型別同 runtime validation 嘅分別。
   - 檔案：`features/categories/types/category.types.ts`、`schemas/category.schema.ts`。
   - 驗收：空白名稱被拒絕，合法名稱通過最小檢查；分類唔 hardcode。
+  - 完成日期：2026-09-27。
+  - 實際檔案：新增 `src/features/categories/types/category.types.ts`、`src/features/categories/schemas/category.schema.ts`、`tests/category.schema.test.mts`；更新 `package.json`、lockfile、`tsconfig.json` 同本文件。
+  - 依賴：加入 Zod 4.6.5、React Hook Form 7.89.0、`@hookform/resolvers` 5.9.1；後兩者留到 Task 14 表單先使用，冇提前建立表單抽象。
+  - 實作：`Category` interface 描述 app 使用嘅分類資料；`categorySchema` 喺 runtime 將名稱 trim，拒絕空白同超過 50 字元，圖示為可選並限制 10 字元；`CategoryInput` 直接由 schema 推斷，避免再寫一份可能不同步嘅型別。冇 hardcode 分類選項。
+  - 驗收結果：schema suite 3 tests 通過，證明空白名稱被拒絕、合法名稱被 trim 後接受、超長圖示被拒絕；合法名稱測試冇提供 icon，亦證明 icon 可以省略。原有 Firestore rules 2 tests 通過；lint、TypeScript、production build 通過；production dependencies audit 0 vulnerabilities。Firebase CLI 開發依賴仍有原有 5 個 moderate transitive advisories。
+  - 編輯器修正：`tsconfig.json` 明確加入 Node types 同 `**/*.mts`，確保 CLI 同編輯器都會 type-check Node test 檔案；修正後 typecheck、schema tests 同 lint 再次通過。
+  - 教學重點：TypeScript 只喺開發／編譯時檢查程式碼，執行時會被移除；Zod schema 會喺 app 執行時檢查外來資料。`z.infer` 可由 schema 產生輸入型別，令 runtime 規則同 TypeScript 型別保持一致。
+  - 理解問題：① 如果使用者提交 `{ name: "   " }`，TypeScript 點解未必會阻止，但 Zod 可以阻止？② `Category` 同 `CategoryInput` 分別代表已儲存資料同表單輸入，邊個會有 `id`、`userId`、`createdAt`？
+  - 下一步：等使用者理解後再做 Task 13。
 
 - [ ] Task 13 — Category service 同 Rules。
   - 做：`createCategory()`、`getCategories()`；驗證 userId、欄位同本人存取，設定 server timestamp。
@@ -482,4 +495,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 11 實作完成，等待登入後手動驗收。** 驗收成功後先標記 complete，再停低等使用者要求 Task 12。
+**Task 12 已完成。** 下一個實作係 Task 13（Category service 同 Rules），等使用者明確要求先開始。
