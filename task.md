@@ -387,10 +387,17 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-09-28。
   - 下一步：等使用者明確要求先開始 Task 18。
 
-- [ ] Task 18 — 新增記錄表單。
+- [x] Task 18 — complete：新增記錄表單。
   - 做：LearningForm 輸入基本欄位，讀取分類選項；冇分類時引導先新增。
   - 檔案：`features/learning/components/LearningForm.tsx`、`learning/new/page.tsx`。
   - 驗收：填表到寫入成功行通；失敗保留內容，重複提交有保護。
+  - 進度：已建立 `/learning/new` 同 LearningForm；載入本人分類，無分類時連去 `/categories`；表單包含標題、內容、分類、學習日期，日期預設今日。
+  - 提交：React Hook Form + Zod 處理欄位錯誤；提交中 disabled，成功先清空並顯示訊息，失敗保留輸入。`/learning` 已加入新增入口。
+  - 自動驗收：schema 7 tests、lint、TypeScript、production build 全部通過；`/learning/new` 本機回應 200。
+  - 手動驗收：使用者已經由 `/learning/new` 成功建立 `Two Sum`；Firebase Console 確認 document 有 categoryId、content、空 images、learnedAt、createdAt、updatedAt、title 同登入者 userId。
+  - 理解確認：使用者理解表單因 state、effect 同 submit interaction 需要 Client Component；分類在 mount 後載入一次；`isSubmitting` disabled 防止重複 request；失敗唔 reset 以保留輸入；categoryId 必填，所以冇分類時先引導建立分類。
+  - 完成日期：2026-09-28。
+  - 下一步：等使用者明確要求先開始 Task 19。
 
 - [ ] Task 19 — 讀取記錄列表。
   - 做：`getLearningEntries()`、日期排序、Card／List；按實際 query 加必要 index，同日記錄有穩定排序。
@@ -534,4 +541,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 17 已完成。** 未開始 Task 18；等使用者明確要求先開始。
+**Task 18 已完成。** 未開始 Task 19；等使用者明確要求先開始。
