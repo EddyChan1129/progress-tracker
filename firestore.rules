@@ -29,12 +29,61 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
+    // 檢查 Learning Entry 欄位，並確認所選分類存在於本人路徑。
+    function isValidLearningEntry(userId) {
+      let data = request.resource.data;
+
+      return data.keys().hasAll([
+          'userId',
+          'title',
+          'content',
+          'categoryId',
+          'images',
+          'learnedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'title',
+          'content',
+          'categoryId',
+          'images',
+          'learnedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.userId is string
+        && data.userId == userId
+        && data.title is string
+        && data.title == data.title.trim()
+        && data.title.size() > 0
+        && data.title.size() <= 100
+        && data.content is string
+        && data.content.trim().size() > 0
+        && data.categoryId is string
+        && data.categoryId.size() > 0
+        && data.images is list
+        && data.images.size() == 0
+        && data.learnedAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdAt == request.time
+        && data.updatedAt is timestamp
+        && data.updatedAt == request.time
+        && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId));
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
 
       // 本人只可以新增通過上面資料檢查嘅分類。
       allow create: if isOwner(userId) && isValidCategory(userId);
+    }
+
+    match /users/{userId}/learningEntries/{entryId} {
+      // 讀取、更新同刪除會喺之後相應功能先逐步開放。
+      allow create: if isOwner(userId) && isValidLearningEntry(userId);
     }
 
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。

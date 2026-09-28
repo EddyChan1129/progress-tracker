@@ -375,10 +375,17 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-09-28。
   - 下一步：等使用者明確要求先開始 Task 17。
 
-- [ ] Task 17 — 新增記錄 service 同 Rules。
+- [x] Task 17 — complete：新增記錄 service 同 Rules。
   - 做：`createLearningEntry()`；service 處理 userId、timestamps、空 images；Rules 檢查 category 屬於本人。
   - 檔案：`features/learning/services/learning.service.ts`、Rules 同測試。
   - 驗收：合法資料可寫入；跨帳戶、無效 category、空白標題被拒絕。
+  - 進度：已加入 create service；schema 將日期字串轉成 `Date`，service 再轉 Firestore `Timestamp`，由登入狀態取得 userId，圖片暫存空陣列，建立／更新時間使用 server timestamp。
+  - Rules：只開放本人 create；欄位、型別、標題／內容、空 images、server timestamps 都要合法，category document 必須存在於同一個使用者路徑；read／update／delete 暫未開放。
+  - 自動驗收：Rules 11 tests（Learning Entry 4 個）、schema 7 tests、lint、TypeScript 同 production build 全部通過。
+  - 部署：Rules 已編譯成功並發佈到正式 Firebase project `process-tracking-87407`。
+  - 理解確認：使用者理解 service 從 Firebase Auth 取得 UID，唔信 component 傳入身份；`learnedAt` 係使用者選擇嘅學習日期，`createdAt`／`updatedAt` 係 server timestamps；Zod 改善前端輸入驗證，Rules 仍要防止繞過 UI 嘅直接請求；category `exists()` 只檢查同一使用者路徑。亦理解 `hasAll` 要求必要欄位但容許更多，`hasOnly` 禁止清單外欄位但可缺少，兩者合用先做到有齊而且冇多餘欄位。
+  - 完成日期：2026-09-28。
+  - 下一步：等使用者明確要求先開始 Task 18。
 
 - [ ] Task 18 — 新增記錄表單。
   - 做：LearningForm 輸入基本欄位，讀取分類選項；冇分類時引導先新增。
@@ -527,4 +534,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 16 已完成。** 未開始 Task 17；等使用者明確要求先開始。
+**Task 17 已完成。** 未開始 Task 18；等使用者明確要求先開始。

@@ -11,3 +11,11 @@ export function signInWithGoogle() {
 export function signOutCurrentUser() {
   return signOut(auth);
 }
+
+export function getCurrentUserId() {
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) throw new Error("請先登入。");
+
+  return userId;
+}

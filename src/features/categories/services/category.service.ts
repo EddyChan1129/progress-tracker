@@ -13,15 +13,8 @@ import {
   type CategoryInput,
 } from "@/features/categories/schemas/category.schema";
 import type { Category } from "@/features/categories/types/category.types";
-import { auth, db } from "@/lib/firebase/client";
-
-function getCurrentUserId() {
-  const userId = auth.currentUser?.uid;
-
-  if (!userId) throw new Error("請先登入。");
-
-  return userId;
-}
+import { getCurrentUserId } from "@/features/auth/services/auth.service";
+import { db } from "@/lib/firebase/client";
 
 export async function createCategory(input: CategoryInput) {
   const userId = getCurrentUserId();

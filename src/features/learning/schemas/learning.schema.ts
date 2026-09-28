@@ -18,4 +18,4 @@ export const learningEntrySchema = z.object({
   }),
 });
 
-export type LearningEntryInput = z.output<typeof learningEntrySchema>;
+export type LearningEntryInput = z.input<typeof learningEntrySchema>;

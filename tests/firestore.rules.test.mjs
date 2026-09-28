@@ -41,6 +41,30 @@ after(async () => {
   await testEnv.cleanup();
 });
 
+async function seedCategory(userId, categoryId) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "users", userId, "categories", categoryId), {
+      userId,
+      name: "Test category",
+      createdAt: Timestamp.now(),
+    });
+  });
+}
+
+function validLearningEntry(overrides = {}) {
+  return {
+    userId: "alice",
+    title: "Two Sum",
+    content: "學識用 Map 儲存已見過嘅數字。",
+    categoryId: "leetcode-entry",
+    images: [],
+    learnedAt: Timestamp.fromDate(new Date(2026, 8, 28)),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 describe("deny-by-default Firestore rules", () => {
   it("reject unauthenticated reads and writes", async () => {
     // 模擬一個完全未登入嘅 browser。
@@ -59,12 +83,65 @@ describe("deny-by-default Firestore rules", () => {
     // 模擬已登入使用者，Firebase Auth UID 係 "alice"。
     const db = testEnv.authenticatedContext("alice").firestore();
 
-    // 即使路徑 uid 同登入 uid 都係 alice，目前 rules 仍未開放呢個 collection。
-    const entry = doc(db, "users/alice/learningEntries/entry-1");
+    // 即使路徑 uid 同登入 uid 都係 alice，目前 rules 仍未開放 goals。
+    const goal = doc(db, "users/alice/goals/goal-1");
 
     // 驗證「已登入」唔代表自動有權限；兩個 request 仍然必須失敗。
-    await assertFails(getDoc(entry));
-    await assertFails(setDoc(entry, { title: "Two Sum" }));
+    await assertFails(getDoc(goal));
+    await assertFails(setDoc(goal, { title: "Read every day" }));
+  });
+});
+
+describe("learning entry Firestore rules", () => {
+  it("allows a user to create a valid entry with their own category", async () => {
+    await seedCategory("alice", "leetcode-entry");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const entry = doc(db, "users/alice/learningEntries/valid-entry");
+
+    await assertSucceeds(setDoc(entry, validLearningEntry()));
+  });
+
+  it("rejects access across users", async () => {
+    const db = testEnv.authenticatedContext("bob").firestore();
+
+    await assertFails(
+      setDoc(
+        doc(db, "users/alice/learningEntries/bob-entry"),
+        validLearningEntry(),
+      ),
+    );
+  });
+
+  it("rejects a category that does not belong to the user", async () => {
+    await seedCategory("alice", "private-category");
+    const db = testEnv.authenticatedContext("bob").firestore();
+    const entry = doc(db, "users/bob/learningEntries/wrong-category");
+
+    await assertFails(
+      setDoc(
+        entry,
+        validLearningEntry({
+          userId: "bob",
+          categoryId: "private-category",
+        }),
+      ),
+    );
+  });
+
+  it("rejects a blank title", async () => {
+    await seedCategory("alice", "blank-title-category");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const entry = doc(db, "users/alice/learningEntries/blank-title");
+
+    await assertFails(
+      setDoc(
+        entry,
+        validLearningEntry({
+          title: "   ",
+          categoryId: "blank-title-category",
+        }),
+      ),
+    );
   });
 });
 
