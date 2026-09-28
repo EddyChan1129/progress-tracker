@@ -349,10 +349,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者理解 page 冇互動可保持 Server Component，表單因 state／event／Firebase browser SDK 需要 Client Component；`zodResolver` 將 React Hook Form 輸入交俾 schema 並產生 field errors；`isSubmitting` disabled 防止重複 request；寫入失敗唔 reset，避免清走合法輸入，讓使用者可以重試。亦理解 schema 錯誤會在 `onSubmit` 前被 resolver 截停。
   - 下一步：等使用者明確要求先開始 Task 15。
 
-- [ ] Task 15 — 分類列表。
+- [x] Task 15 — complete：分類列表。
   - 做：顯示本人分類，新增後刷新列表，補 loading／empty／error。
   - 檔案：`features/categories/components/CategoryList.tsx`、categories page。
   - 驗收：refresh 後分類仍存在；完成 Categories 理解問題後先繼續。
+  - 進度：已新增 `CategoryList`，mount 時呼叫 `getCategories()`，處理 loading／empty／error／列表四種畫面；以 document ID 做 React key，冇 icon 時顯示預設資料夾圖示。
+  - 更新流程：新增 `CategoryManager` 保存 `listVersion`；`CategoryForm` 寫入成功後呼叫 `onCreated()`，版本加一令 `CategoryList` remount 並重新讀取，唔需要加入 React Query 或全域 store。
+  - 實際改動：新增 `src/features/categories/components/category-list.tsx`、`category-manager.tsx`；更新 `category-form.tsx`、categories page 同本文件。
+  - 自動驗收：schema 3 tests、lint、TypeScript、production build 通過。
+  - 手動驗收：使用者確認現有分類可顯示、新增分類後列表即時更新，refresh 後分類仍然存在。
+  - 理解確認：使用者理解 `onCreated()` 通知 parent 更新 `listVersion`；`key` 改變會移除舊 `CategoryList` 並建立新 instance，令 `useEffect(..., [])` 再執行；普通 prop 要放入 effect dependency array 先會因數值改變重新讀取；資料保存於 Firestore，唔係 React state。
+  - 完成日期：2026-09-28。
+  - 下一步：等使用者明確要求先開始 Task 16。
 
 ## Phase 5 — Learning Entry CRUD
 
@@ -513,4 +521,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 14 已完成。** 下一個實作係 Task 15（分類列表），等使用者明確要求先開始。
+**Task 15 已完成。** 未開始 Task 16；等使用者明確要求先開始。

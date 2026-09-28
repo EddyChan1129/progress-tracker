@@ -12,7 +12,7 @@ import {
 } from "@/features/categories/schemas/category.schema";
 import { createCategory } from "@/features/categories/services/category.service";
 
-export function CategoryForm() {
+export function CategoryForm({ onCreated }: { onCreated: () => void }) {
   const [successMessage, setSuccessMessage] = useState("");
   const {
     register,
@@ -32,6 +32,7 @@ export function CategoryForm() {
       await createCategory(input);
       reset();
       setSuccessMessage("分類已新增。");
+      onCreated();
     } catch {
       setError("root", { message: "新增分類失敗，請再試一次。" });
     }
