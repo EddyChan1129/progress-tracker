@@ -364,10 +364,16 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
 
 ## Phase 5 — Learning Entry CRUD
 
-- [ ] Task 16 — Learning Entry 型別同 schema。
+- [x] Task 16 — complete：Learning Entry 型別同 schema。
   - 做：建立模型；驗證 title、content、categoryId、日期；先無圖片同 goal 選擇 UI。
   - 檔案：`features/learning/types/learning.types.ts`、`schemas/learning.schema.ts`。
   - 驗收：日期轉換、無效日期、空白文字、超長標題都有最小檢查。
+  - 進度：已建立完整 `LearningEntry`／`LearningImage` 型別同輸入 schema；日期字串會轉成本地 `Date`，content 驗證空白但保留原本 Markdown／code 格式。
+  - 實際改動：新增 learning types、schema 同 4 個 schema tests；`test:schema` 會執行全部 feature schema tests。
+  - 自動驗收：全部 7 個 schema tests（其中 learning 4 個）、lint、TypeScript、production build 通過。
+  - 理解確認：使用者理解 interface 只提供 TypeScript 靜態型別，唔會在 runtime 驗證或儲存資料；Zod schema 先會在 runtime 驗證輸入；HTML date input 提供字串，schema 將佢轉成本地 `Date`；JavaScript 月份由 0 開始。
+  - 完成日期：2026-09-28。
+  - 下一步：等使用者明確要求先開始 Task 17。
 
 - [ ] Task 17 — 新增記錄 service 同 Rules。
   - 做：`createLearningEntry()`；service 處理 userId、timestamps、空 images；Rules 檢查 category 屬於本人。
@@ -521,4 +527,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 15 已完成。** 未開始 Task 16；等使用者明確要求先開始。
+**Task 16 已完成。** 未開始 Task 17；等使用者明確要求先開始。

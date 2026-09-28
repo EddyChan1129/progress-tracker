@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:schema": "node --test tests/category.schema.test.mts",
+    "test:schema": "node --test tests/*.schema.test.mts",
     "test:rules": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --test tests/firestore.rules.test.mjs\"",
     "typecheck": "next typegen && tsc --noEmit"
   },
