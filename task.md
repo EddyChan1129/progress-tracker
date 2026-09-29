@@ -399,10 +399,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-09-28。
   - 下一步：等使用者明確要求先開始 Task 19。
 
-- [ ] Task 19 — 讀取記錄列表。
+- [x] Task 19 — complete：讀取記錄列表。
   - 做：`getLearningEntries()`、日期排序、Card／List；按實際 query 加必要 index，同日記錄有穩定排序。
   - 檔案：learning service、`LearningCard.tsx`、`LearningList.tsx`、learning page。
   - 驗收：顯示標題、分類、日期；loading／empty／error 正常。
+  - 進度：已加入本人記錄 query，按 `learnedAt desc`、`createdAt desc` 排序；LearningList 並行讀取記錄同分類，LearningCard 顯示標題、分類名稱同本地格式日期，並處理 loading／empty／error。
+  - Rules／index：本人可讀自己 learningEntries，其他人不可讀；加入對應雙欄位 composite index，同日記錄按建立時間穩定排序。
+  - 自動驗收：Rules 11 tests（包含本人 document／list read 成功、跨帳戶 read 失敗）、schema 7 tests、lint、TypeScript 同 production build 全部通過。
+  - 部署：read Rules 同 composite index 已發佈到正式 Firebase project `process-tracking-87407`。
+  - 手動驗收：index 狀態已變成 READY；使用者確認 `/learning` 顯示正式 Firestore 記錄 `Two Sum`、分類 `LeetCode` 同正確學習日期。
+  - 理解確認：使用者理解 `learnedAt desc` 令較新學習日期排先，日期相同時由 `createdAt desc` 決定穩定次序；`Promise.all` 並行讀取記錄同分類；Map 用 categoryId 對照分類名稱；Firestore Timestamp 要轉 JavaScript Date；owner Rules 阻止 Bob 讀 Alice 路徑。
+  - 完成日期：2026-09-29。
+  - 下一步：等使用者明確要求先開始 Task 19a。
 
 - [ ] Task 19a — 學習內容支援文字同 code。
   - 做：textarea 保留貼上嘅縮排／換行；示範用三個反引號包住 code，加入安全 Markdown 預覽同記錄內容顯示。唔開放 raw HTML，限制連結協定；圖片只經附件功能顯示，唔自動載入 Markdown 外部圖片。
@@ -541,4 +549,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 18 已完成。** 未開始 Task 19；等使用者明確要求先開始。
+**Task 19 已完成。** 未開始 Task 19a；等使用者明確要求先開始。

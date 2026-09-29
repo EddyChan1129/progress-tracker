@@ -99,11 +99,20 @@ describe("learning entry Firestore rules", () => {
     const entry = doc(db, "users/alice/learningEntries/valid-entry");
 
     await assertSucceeds(setDoc(entry, validLearningEntry()));
+    await assertSucceeds(getDoc(entry));
+    await assertSucceeds(
+      getDocs(collection(db, "users/alice/learningEntries")),
+    );
   });
 
   it("rejects access across users", async () => {
     const db = testEnv.authenticatedContext("bob").firestore();
+    const aliceEntry = doc(db, "users/alice/learningEntries/alice-entry");
 
+    await assertFails(getDoc(aliceEntry));
+    await assertFails(
+      getDocs(collection(db, "users/alice/learningEntries")),
+    );
     await assertFails(
       setDoc(
         doc(db, "users/alice/learningEntries/bob-entry"),

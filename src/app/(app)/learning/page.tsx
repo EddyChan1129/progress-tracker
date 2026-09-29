@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { LearningList } from "@/features/learning/components/learning-list";
 
 export default function LearningPage() {
   return (
@@ -10,6 +11,7 @@ export default function LearningPage() {
       <Button asChild className="mt-6">
         <Link href="/learning/new">新增學習記錄</Link>
       </Button>
+      <LearningList />
     </section>
   );
 }

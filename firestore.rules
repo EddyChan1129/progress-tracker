@@ -82,7 +82,8 @@ service cloud.firestore {
     }
 
     match /users/{userId}/learningEntries/{entryId} {
-      // 讀取、更新同刪除會喺之後相應功能先逐步開放。
+      // 本人可以讀自己路徑入面嘅記錄；更新同刪除仍未開放。
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidLearningEntry(userId);
     }
 
