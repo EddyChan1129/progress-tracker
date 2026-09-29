@@ -412,10 +412,17 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-09-29。
   - 下一步：等使用者明確要求先開始 Task 19a。
 
-- [ ] Task 19a — 學習內容支援文字同 code。
+- [x] Task 19a — complete：學習內容支援文字同 code。
   - 做：textarea 保留貼上嘅縮排／換行；示範用三個反引號包住 code，加入安全 Markdown 預覽同記錄內容顯示。唔開放 raw HTML，限制連結協定；圖片只經附件功能顯示，唔自動載入 Markdown 外部圖片。
   - 檔案：LearningForm、learning 內容顯示元件、必要依賴。
   - 驗收：文字同多段 code 可共存，儲存／讀取／編輯後內容不變，長行可橫向捲動，HTML／script 唔會執行。
+  - 進度：加入共用 MarkdownContent，LearningForm textarea 示範 fenced code 並即時預覽，LearningCard 顯示已儲存內容；code block 保留換行／縮排，長行可橫向捲動。
+  - 安全：使用明確 element allowlist、`skipHtml`，只允許 HTTP(S) link；Markdown image 唔 render，圖片繼續只由附件功能處理。
+  - 依賴／測試：加入 `react-markdown` 10.1.0；安全設定 tests 2/2、schema 7/7、Rules 11/11、lint、TypeScript、production build 全部通過；production dependencies audit 0 vulnerabilities。
+  - 手動驗收：使用者確認預覽同正式列表都保留文字、code 換行／縮排及長行；raw script 同 Markdown 外部圖片冇 render；HTTPS link 正常，危險 protocol link 變普通文字；儲存／讀取後內容一致。
+  - 理解確認：使用者理解單一 Markdown 字串可簡單保留文字、code 同順序；`useWatch` 只訂閱 content 最新值並觸發預覽 render，唔會寫 Firestore；`skipHtml` 忽略 raw HTML，element allowlist 限制 Markdown 產生嘅元素；HTTP(S) allowlist 防止危險 protocol；圖片之後只經 Cloudinary 附件功能加入。
+  - 完成日期：2026-09-29。
+  - 下一步：等使用者明確要求先開始 Task 20。
 
 - [ ] Task 20 — 編輯記錄。
   - 做：`getLearningEntry()`、`updateLearningEntry()`，沿用表單；Rules 禁止改 userId／createdAt。
@@ -549,4 +556,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 19 已完成。** 未開始 Task 19a；等使用者明確要求先開始。
+**Task 19a 已完成。** 未開始 Task 20；等使用者明確要求先開始。

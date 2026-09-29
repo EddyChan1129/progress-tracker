@@ -3,12 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
+import { MarkdownContent } from "@/features/learning/components/markdown-content";
 import {
   learningEntrySchema,
   type LearningEntryInput,
@@ -30,6 +31,7 @@ export function LearningForm() {
   const [categoryError, setCategoryError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -44,6 +46,7 @@ export function LearningForm() {
       learnedAt: getToday(),
     },
   });
+  const content = useWatch({ control, name: "content" });
 
   useEffect(() => {
     let isCurrent = true;
@@ -144,7 +147,7 @@ export function LearningForm() {
           aria-invalid={Boolean(errors.content)}
           className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
           id="learning-content"
-          placeholder="寫低學到嘅內容；可以保留換行同 code 縮排。"
+          placeholder={"例如：\n\n```js\nconst seen = new Map();\n```"}
           {...register("content")}
         />
         {errors.content ? (
@@ -153,6 +156,17 @@ export function LearningForm() {
           </p>
         ) : null}
       </div>
+
+      {content.trim() ? (
+        <section aria-labelledby="learning-preview-heading" className="space-y-3">
+          <h2 className="text-sm font-medium" id="learning-preview-heading">
+            預覽
+          </h2>
+          <div className="rounded-lg border bg-background p-4">
+            <MarkdownContent content={content} />
+          </div>
+        </section>
+      ) : null}
 
       <div className="space-y-2">
         <label className="text-sm font-medium" htmlFor="learning-category">
