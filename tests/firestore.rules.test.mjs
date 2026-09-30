@@ -51,6 +51,27 @@ async function seedCategory(userId, categoryId) {
   });
 }
 
+async function seedLearningEntry(userId, entryId, categoryId) {
+  await seedCategory(userId, categoryId);
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const timestamp = Timestamp.now();
+
+    await setDoc(
+      doc(context.firestore(), "users", userId, "learningEntries", entryId),
+      {
+        userId,
+        title: "Original title",
+        content: "Original content",
+        categoryId,
+        images: [],
+        learnedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    );
+  });
+}
+
 function validLearningEntry(overrides = {}) {
   return {
     userId: "alice",
@@ -151,6 +172,38 @@ describe("learning entry Firestore rules", () => {
         }),
       ),
     );
+  });
+
+  it("allows an owner to update editable learning entry fields", async () => {
+    await seedLearningEntry("alice", "editable-entry", "edit-category");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const entry = doc(db, "users/alice/learningEntries/editable-entry");
+
+    await assertSucceeds(
+      updateDoc(entry, {
+        title: "Updated title",
+        content: "Updated content",
+        learnedAt: Timestamp.fromDate(new Date(2026, 8, 30)),
+        updatedAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it("rejects changes to a learning entry owner or creation time", async () => {
+    await seedLearningEntry("alice", "locked-entry", "locked-category");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const entry = doc(db, "users/alice/learningEntries/locked-entry");
+
+    await assertFails(updateDoc(entry, { userId: "bob" }));
+    await assertFails(updateDoc(entry, { createdAt: serverTimestamp() }));
+  });
+
+  it("rejects another user's learning entry update", async () => {
+    await seedLearningEntry("alice", "private-entry", "private-category");
+    const db = testEnv.authenticatedContext("bob").firestore();
+    const entry = doc(db, "users/alice/learningEntries/private-entry");
+
+    await assertFails(updateDoc(entry, { title: "Changed by Bob" }));
   });
 });
 

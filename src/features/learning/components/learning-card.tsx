@@ -1,3 +1,6 @@
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
 import type { LearningEntry } from "@/features/learning/types/learning.types";
 
@@ -32,6 +35,9 @@ export function LearningCard({
           </dd>
         </div>
       </dl>
+      <Button asChild className="mt-4" size="sm" variant="outline">
+        <Link href={`/learning/${entry.id}/edit`}>編輯</Link>
+      </Button>
     </article>
   );
 }

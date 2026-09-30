@@ -424,10 +424,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-09-29。
   - 下一步：等使用者明確要求先開始 Task 20。
 
-- [ ] Task 20 — 編輯記錄。
+- [x] Task 20 — complete：編輯記錄。
   - 做：`getLearningEntry()`、`updateLearningEntry()`，沿用表單；Rules 禁止改 userId／createdAt。
   - 檔案：learning service、LearningForm、`learning/[id]/edit/page.tsx`、Rules 同測試。
   - 驗收：預填、儲存、refresh 正常；不存在／非本人 ID 唔會顯示資料。
+  - 進度：已加入單筆讀取、更新 service、編輯動態路由同列表「編輯」入口；同一個 LearningForm 會按有冇 `entryId` 決定新增或編輯模式。
+  - Rules：本人可更新合法欄位；`userId` 同 `createdAt` 必須等於原本資料，`updatedAt` 必須係今次 request 嘅 server time；其他人更新會被拒絕。
+  - 自動驗收：Rules 14 tests、schema 7 tests、Markdown 2 tests、lint、TypeScript 同 production build 全部通過。
+  - 部署：更新 Rules 已發佈到正式 Firebase project `process-tracking-87407`。
+  - 手動驗收：使用者確認預填、儲存、refresh 同不存在 ID 狀態正常。
+  - 理解確認：使用者理解 `[id]` 提供記錄 ID；有 `entryId` 時讀取及更新、冇 `entryId` 時新增；Firestore 資料非同步返回後用 `reset()` 設為表單新基準，清除舊 errors 並令 `isDirty` 回復 false；`resource.data` 係更新前資料，`request.resource.data` 係更新後完整資料；effect cleanup 將舊 request 所屬嘅 `isCurrent` 設為 false，避免 unmount 或切換記錄後用過期結果更新 state。
+  - 完成日期：2026-10-01。
+  - 下一步：等使用者明確要求先開始 Task 21。
 
 - [ ] Task 21 — 刪除記錄。
   - 做：`deleteLearningEntry()` 同確認 UI；成功先移除列表項目。

@@ -14,7 +14,11 @@ import {
   learningEntrySchema,
   type LearningEntryInput,
 } from "@/features/learning/schemas/learning.schema";
-import { createLearningEntry } from "@/features/learning/services/learning.service";
+import {
+  createLearningEntry,
+  getLearningEntry,
+  updateLearningEntry,
+} from "@/features/learning/services/learning.service";
 
 function getToday() {
   const today = new Date();
@@ -25,10 +29,19 @@ function getToday() {
   return `${year}-${month}-${day}`;
 }
 
-export function LearningForm() {
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+export function LearningForm({ entryId }: { entryId?: string }) {
+  const isEditing = Boolean(entryId);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [categoryError, setCategoryError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const {
     control,
@@ -51,51 +64,77 @@ export function LearningForm() {
   useEffect(() => {
     let isCurrent = true;
 
-    getCategories()
-      .then((result) => {
-        if (isCurrent) setCategories(result);
+    Promise.all([
+      getCategories(),
+      entryId ? getLearningEntry(entryId) : Promise.resolve(null),
+    ])
+      .then(([categoryResult, entry]) => {
+        if (!isCurrent) return;
+
+        setCategories(categoryResult);
+
+        if (entryId && !entry) {
+          setLoadError("搵唔到呢筆學習記錄。");
+          return;
+        }
+
+        if (entry) {
+          reset({
+            title: entry.title,
+            content: entry.content,
+            categoryId: entry.categoryId,
+            learnedAt: toDateInputValue(entry.learnedAt),
+          });
+        }
       })
       .catch(() => {
-        if (isCurrent) setCategoryError("未能載入分類，請重新整理再試。");
+        if (isCurrent) setLoadError("未能載入資料，請重新整理再試。");
       })
       .finally(() => {
-        if (isCurrent) setIsLoadingCategories(false);
+        if (isCurrent) setIsLoading(false);
       });
 
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [entryId, reset]);
 
   async function onSubmit(input: LearningEntryInput) {
     setSuccessMessage("");
 
     try {
-      await createLearningEntry(input);
-      reset({
-        title: "",
-        content: "",
-        categoryId: "",
-        learnedAt: getToday(),
-      });
-      setSuccessMessage("學習記錄已新增。");
+      if (entryId) {
+        await updateLearningEntry(entryId, input);
+        setSuccessMessage("學習記錄已更新。");
+      } else {
+        await createLearningEntry(input);
+        reset({
+          title: "",
+          content: "",
+          categoryId: "",
+          learnedAt: getToday(),
+        });
+        setSuccessMessage("學習記錄已新增。");
+      }
     } catch {
-      setError("root", { message: "新增學習記錄失敗，請再試一次。" });
+      setError("root", {
+        message: `${isEditing ? "更新" : "新增"}學習記錄失敗，請再試一次。`,
+      });
     }
   }
 
-  if (isLoadingCategories) {
+  if (isLoading) {
     return (
       <p className="mt-8 text-sm text-muted-foreground" role="status">
-        載入分類中…
+        載入資料中…
       </p>
     );
   }
 
-  if (categoryError) {
+  if (loadError) {
     return (
       <p className="mt-8 text-sm text-destructive" role="alert">
-        {categoryError}
+        {loadError}
       </p>
     );
   }
@@ -217,7 +256,13 @@ export function LearningForm() {
       </div>
 
       <Button disabled={isSubmitting} type="submit">
-        {isSubmitting ? "新增中…" : "新增學習記錄"}
+        {isSubmitting
+          ? isEditing
+            ? "儲存中…"
+            : "新增中…"
+          : isEditing
+            ? "儲存修改"
+            : "新增學習記錄"}
       </Button>
 
       <div aria-live="polite">
