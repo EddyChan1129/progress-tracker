@@ -69,6 +69,11 @@ export function LearningList() {
           categoryName={categoryNames.get(entry.categoryId) ?? "未知分類"}
           entry={entry}
           key={entry.id}
+          onDeleted={(deletedId) => {
+            setEntries((current) =>
+              current.filter((item) => item.id !== deletedId),
+            );
+          }}
         />
       ))}
     </div>

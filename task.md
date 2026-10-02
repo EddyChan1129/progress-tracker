@@ -437,10 +437,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-10-01。
   - 下一步：等使用者明確要求先開始 Task 21。
 
-- [ ] Task 21 — 刪除記錄。
+- [x] Task 21 — complete：刪除記錄。
   - 做：`deleteLearningEntry()` 同確認 UI；成功先移除列表項目。
   - 檔案：learning service、刪除操作 UI、Rules 同測試。
   - 驗收：取消唔刪、確認先刪、失敗有提示；完成 Learning CRUD 理解問題。
+  - 進度：已加入 `deleteLearningEntry()`、卡片刪除按鈕同原生確認框；刪除中 disabled，成功後用 `onDeleted()` 通知 parent 以 functional setState／filter 移除項目；失敗保留卡片並顯示錯誤。
+  - Rules：只允許本人刪除空 images 記錄；有圖片嘅記錄留待 Task 21e 資產清理流程處理。
+  - 自動驗收：Rules 16/16 tests（包含本人刪除成功、未登入／他人刪除被拒、有圖片直接刪除被拒）、lint、TypeScript、production build 通過。
+  - 部署：Rules 已發佈到 `process-tracking-87407`。
+  - 手動驗收：使用者確認完成刪除功能驗收。
+  - 理解確認：使用者理解取消確認框會立即 return、唔發送 request；await 刪除成功後先呼叫 onDeleted callback，parent 用 filter 移除指定 ID；失敗保留卡片，catch 顯示錯誤，finally 重設 isDeleting 以容許重試；Firestore owner Rules 先係授權界線。
+  - 完成日期：2026-10-02。
+  - 下一步：等使用者明確要求先開始 Task 21a。
 
 ## Phase 5b — Cloudinary 圖片（每項獨立做）
 
@@ -564,4 +572,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 19a 已完成。** 未開始 Task 20；等使用者明確要求先開始。
+**Task 21 已完成。** 未開始 Task 21a；等使用者明確要求先開始。

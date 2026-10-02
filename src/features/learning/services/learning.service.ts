@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   type DocumentData,
   getDoc,
@@ -19,6 +20,12 @@ import {
 } from "@/features/learning/schemas/learning.schema";
 import type { LearningEntry } from "@/features/learning/types/learning.types";
 import { db } from "@/lib/firebase/client";
+
+export async function deleteLearningEntry(entryId: string) {
+  const userId = getCurrentUserId();
+
+  await deleteDoc(doc(db, "users", userId, "learningEntries", entryId));
+}
 
 function toLearningEntry(id: string, data: DocumentData): LearningEntry {
   if (

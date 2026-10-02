@@ -205,6 +205,33 @@ describe("learning entry Firestore rules", () => {
 
     await assertFails(updateDoc(entry, { title: "Changed by Bob" }));
   });
+
+  it("allows only the owner to delete a learning entry", async () => {
+    await seedLearningEntry("alice", "delete-entry", "delete-category");
+    const path = "users/alice/learningEntries/delete-entry";
+    const guestDb = testEnv.unauthenticatedContext().firestore();
+    const bobDb = testEnv.authenticatedContext("bob").firestore();
+    const aliceDb = testEnv.authenticatedContext("alice").firestore();
+
+    await assertFails(deleteDoc(doc(guestDb, path)));
+    await assertFails(deleteDoc(doc(bobDb, path)));
+    await assertSucceeds(getDoc(doc(aliceDb, path)));
+    await assertSucceeds(deleteDoc(doc(aliceDb, path)));
+    const deleted = await getDoc(doc(aliceDb, path));
+    if (deleted.exists()) throw new Error("Entry was not deleted.");
+  });
+
+  it("rejects direct deletion of an entry with images", async () => {
+    await seedLearningEntry("alice", "image-entry", "image-category");
+    const path = "users/alice/learningEntries/image-entry";
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), path), {
+        images: [{ publicId: "test-image", url: "https://example.com/image.png" }],
+      });
+    });
+    const db = testEnv.authenticatedContext("alice").firestore();
+    await assertFails(deleteDoc(doc(db, path)));
+  });
 });
 
 describe("category Firestore rules", () => {

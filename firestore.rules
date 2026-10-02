@@ -95,6 +95,9 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
+
+      // 目前只刪除冇圖片嘅本人記錄；有圖片時需經之後嘅資產清理流程。
+      allow delete: if isOwner(userId) && resource.data.images.size() == 0;
     }
 
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。
