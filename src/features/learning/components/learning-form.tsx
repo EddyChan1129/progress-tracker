@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
+import { LearningImageInput } from "@/features/learning/components/learning-image-input";
 import {
   learningEntrySchema,
   type LearningEntryInput,
@@ -43,6 +44,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const {
     control,
     register,
@@ -101,6 +103,10 @@ export function LearningForm({ entryId }: { entryId?: string }) {
 
   async function onSubmit(input: LearningEntryInput) {
     setSuccessMessage("");
+    if (imageFiles.length > 0) {
+      setError("root", { message: "圖片上傳尚未開放，請先移除預覽圖片再儲存文字記錄。" });
+      return;
+    }
 
     try {
       if (entryId) {
@@ -255,7 +261,18 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         ) : null}
       </div>
 
-      <Button disabled={isSubmitting} type="submit">
+      <LearningImageInput
+        disabled={isSubmitting}
+        files={imageFiles}
+        onChange={setImageFiles}
+      />
+      {imageFiles.length > 0 ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          圖片上傳尚未開放，請先移除預覽圖片再儲存文字記錄。
+        </p>
+      ) : null}
+
+      <Button disabled={isSubmitting || imageFiles.length > 0} type="submit">
         {isSubmitting
           ? isEditing
             ? "儲存中…"

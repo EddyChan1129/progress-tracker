@@ -452,23 +452,47 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
 
 ## Phase 5b — Cloudinary 圖片（每項獨立做）
 
-- [ ] Task 21a — 確認圖片存取方式同設定 Cloudinary。
+- [x] Task 21a — complete：確認圖片存取方式同設定 Cloudinary。
   - 做：確認公開 URL 或私人圖片需求，解釋 Firestore Rules 唔會保護 Cloudinary URL；設定 Cloudinary、server 環境變數，同圖片格式／大小／數量限制。
   - 檔案：`.env.example`、本機環境設定、本文件。
   - 驗收：可見性方案已確認，秘密冇用 NEXT_PUBLIC 前綴，未上傳圖片。
+  - 可見性：使用者選擇公開 URL。圖片使用 Cloudinary `upload` delivery type，任何取得網址嘅人都可查看；Firestore Rules 只保護 Firestore document，唔會保護 Cloudinary URL。上傳／刪除仍由 server 驗證身份及所有權。
+  - 限制：每筆最多 5 張；每張最多 5 MiB（5 × 1024 × 1024 bytes）；只接受 JPEG、PNG、WebP，暫不接受 GIF、SVG、PDF／影片。後續前端驗證改善 UX，server／Cloudinary 必須同時強制限制。
+  - 環境變數：`.env.example` 同本機 `.env.local` 加入 `CLOUDINARY_CLOUD_NAME`、`CLOUDINARY_API_KEY`、`CLOUDINARY_API_SECRET`；冇 NEXT_PUBLIC 前綴，本機檔案由 Git 忽略。API secret 只供 server 產生簽名及刪除資產使用。
+  - 設定方式：Cloudinary Console Settings → API Keys 取得三項值；填入 `.env.local`，唔貼到聊天。Task 21c 再設定 signed upload 及實際 server 限制。
+  - 設定檢查：使用者已填妥 credentials；三項本機欄位均非空，冇 NEXT_PUBLIC Cloudinary secret，`.env.local` 被 Git 忽略。Node 唯讀 Cloudinary ping 回傳 OK，確認 credentials 可用；未上傳圖片。
+  - 理解確認：使用者理解 NEXT_PUBLIC 變數可暴露於 browser；公開 Cloudinary URL 可被取得網址者直接查看，Firebase Rules 唔會保護另一服務嘅圖片；前端大小限制可被直接 request／Postman 繞過，server／Cloudinary 需強制限制。
+  - 完成日期：2026-10-02。
+  - 下一步：等使用者明確要求先開始 Task 21b。
 
-- [ ] Task 21b — 選圖同本機預覽。
+- [x] Task 21b — complete：選圖同本機預覽。
   - 做：LearningForm 支援多圖選擇、預覽、移除待上傳圖片；釋放預覽 object URL。
   - 檔案：learning 圖片輸入元件、LearningForm。
   - 驗收：選圖、取消、移除正常；不合規檔案有提示；呢步唔連 Cloudinary。
+  - 進度：新增獨立 LearningImageInput，LearningForm 保存 File[]；支援分次多選、預覽及逐張移除，取消選圖保留原有選擇。native input 選圖後清空，容許再次選同一檔案。
+  - 本機驗證：JPEG／PNG／WebP、每張非空且最多 5 MiB、總數最多 5 張；有不合規檔案時整批拒絕，保留已選圖片及文字。
+  - 預覽：每張圖片由 effect 建立 blob URL，file 改變或元件 unmount 時 revoke；移除按鈕用 type="button"，唔會提交表單。
+  - 暫存行為：選圖未上傳或寫入 Firestore；重新整理／離開頁面後清除。有待處理圖片時提示並禁止儲存，onSubmit 亦有 guard，避免圖片未保存卻顯示成功。
+  - 自動驗收：圖片限制 tests 2/2、lint、TypeScript、production build 通過。冇新增依賴。
+  - 手動驗收：使用者確認選圖及本機預覽功能收貨。
+  - 理解確認：使用者理解 File 暫存於瀏覽器、refresh 後消失；createObjectURL 建立本機預覽網址而非上傳；移除 File／預覽並 revoke URL 解除引用，容許 browser 回收記憶體資源，唔係清 cache；移除按鈕需 type="button" 避免提交整份表單。
+  - 完成日期：2026-10-02。
+  - 下一步：等使用者明確要求先開始 Task 21c。
 
-- [ ] Task 21c — Server 驗證身份同產生上傳簽名。
-  - 做：建立 Firebase ID token 驗證、Cloudinary server 設定同簽名 Route Handler；server 控制 UID 資產路徑、允許參數及 upload 限制。
+- [ ] Task 21c — Server 驗證身份同簽名上傳。
+  - 做：建立 Firebase ID token 驗證、Cloudinary server 設定同上傳 Route Handler；server 接收圖片、檢查格式／大小，再簽名上傳，控制 UID 資產路徑及允許參數。
   - 檔案：`lib/firebase/admin.ts`、`lib/cloudinary/server.ts`、`app/api/learning-images/`、最小權限測試。
   - 驗收：未登入／偽造 token／他人路徑被拒；secret 唔進入 client bundle；伺服器端上傳限制有效。
+  - 進度：已建立 POST `/api/learning-images/upload`；Bearer Firebase ID token 由 Admin SDK 驗證後取得 UID，唔接受 browser 自訂 userId／publicId／folder。一次接收一張 JPEG／PNG／WebP，讀取 body 時限制大小，再檢查 File 大小、MIME 同檔案頭，Cloudinary 再解碼圖片。
+  - 設計調整：Cloudinary 簽名唔包含 file，發簽名畀 browser 無法綁定已檢查嘅檔案；因此改由 server 上傳。SDK 使用 server secret 簽名，固定本人路徑、隨機資產 ID、禁止覆寫；只回傳 publicId 同公開 URL。
+  - 自動驗收：`npm run test:upload` 2/2、`test:images` 2/2、lint、TypeScript、production build 通過。未登入及 malformed token 用真正 verifier 拒絕；成功身份同 Cloudinary 上傳用 mock，未實際上傳圖片。localhost 無 token request 回傳 401；browser static assets 未包含本機 Cloudinary secret。
+  - 大小調整：使用者確認改為每張最多 4 MiB（4 × 1024 × 1024 bytes），同步更新前端／server／測試；預留 multipart 空間，符合 Vercel Function 4.5 MB request body 上限。Task 21a／21b 上述 5 MiB 為當時設定，現已取代。
+  - 範圍：未接駁表單，未儲存 Firestore 圖片關聯；每筆最多 5 張由 Task 21d 關聯時強制驗證。正常登入後嘅實際上傳留待 Task 21d 手動驗收。
+  - 依賴：新增 firebase-admin、cloudinary、server-only。npm audit fix 已套用相容修復；audit 仍有 transitive advisories，未使用會降級 Firebase 嘅 force 修復。
+  - 狀態：等使用者理解確認，未標記 complete。
 
 - [ ] Task 21d — 上傳圖片同儲存關聯。
-  - 做：前端取得簽名後上傳 Cloudinary；server 核實上傳結果及所有權，再將 publicId 同所需圖片資料連到記錄；同步更新 schema／Rules，避免繞過 API 偽造受保護圖片欄位。
+  - 做：前端將圖片同 Firebase ID token 送到 server 上傳 API；server 核實資產及所有權，再將 publicId 同所需圖片資料連到記錄，強制每筆最多 5 張；同步更新 schema／Rules，避免繞過 API 偽造受保護圖片欄位。
   - 檔案：learning 圖片 service、必要 Route Handler、LearningForm、learning schema／types、Rules。
   - 驗收：多圖可儲存並於 refresh 後顯示；圖片內容唔寫入 Firestore；上傳／關聯失敗保留文字並有明確重試方式，唔顯示假成功。
 
@@ -572,4 +596,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 21 已完成。** 未開始 Task 21a；等使用者明確要求先開始。
+**Task 21c 實作及自動驗證已完成，未標記 complete。** 等理解確認；未開始 Task 21d。
