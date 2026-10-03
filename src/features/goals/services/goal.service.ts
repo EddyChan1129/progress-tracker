@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -7,11 +8,12 @@ import {
   query,
   serverTimestamp,
   Timestamp,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
-import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
+import { goalCreationSchema, goalSchema, type GoalCreationInput, type GoalInput } from "@/features/goals/schemas/goal.schema";
 import { db } from "@/lib/firebase/client";
 import type { Goal } from "@/features/goals/types/goal.types";
 import { toGoal } from "./goal-data";
@@ -36,14 +38,7 @@ export async function createGoal(input: GoalCreationInput) {
   const userId = getCurrentUserId();
   const { title, description, categoryId, startDate, targetDate, subGoals = [] } = goalCreationSchema.parse(input);
 
-  // categoryId 只可以係一個 document ID，唔可以係其他路徑。
-  if (categoryId.includes("/") || [".", ".."].includes(categoryId)) {
-    throw new Error("分類不正確。");
-  }
-  const category = await getDoc(doc(db, "users", userId, "categories", categoryId));
-  if (!category.exists() || category.data().userId !== userId) {
-    throw new Error("搵唔到本人嘅分類，請重新選擇。");
-  }
+  await assertOwnCategory(userId, categoryId);
 
   const goal = doc(collection(db, "users", userId, "goals"));
   const batch = writeBatch(db);
@@ -72,4 +67,39 @@ export async function createGoal(input: GoalCreationInput) {
   await batch.commit();
 
   return goal.id;
+}
+
+export async function updateGoal(goalId: string, input: GoalInput) {
+  const userId = getCurrentUserId();
+  const { title, description, categoryId, startDate, targetDate } = goalSchema.parse(input);
+  if (!goalId.trim() || goalId !== goalId.trim() || goalId.includes("/") || [".", ".."].includes(goalId)) {
+    throw new Error("目標不正確。");
+  }
+  const ref = doc(db, "users", userId, "goals", goalId);
+  const goal = await getDoc(ref);
+  if (!goal.exists() || goal.data().userId !== userId) {
+    throw new Error("搵唔到本人嘅大目標。");
+  }
+  await assertOwnCategory(userId, categoryId);
+
+  // 只更新可編輯欄位，唔覆寫身份、建立時間、狀態或細目標。
+  await updateDoc(ref, {
+    title, categoryId,
+    // 編輯時留空代表移除舊值；省略欄位反而會保留原值。
+    description: description || deleteField(),
+    startDate: startDate ? Timestamp.fromDate(startDate) : deleteField(),
+    targetDate: targetDate ? Timestamp.fromDate(targetDate) : deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// 新增同編輯共用分類檢查；真正權限仍由 Firestore Rules 核實。
+async function assertOwnCategory(userId: string, categoryId: string) {
+  if (categoryId.includes("/") || [".", ".."].includes(categoryId)) {
+    throw new Error("分類不正確。");
+  }
+  const category = await getDoc(doc(db, "users", userId, "categories", categoryId));
+  if (!category.exists() || category.data().userId !== userId) {
+    throw new Error("搵唔到本人嘅分類，請重新選擇。");
+  }
 }

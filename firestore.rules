@@ -71,16 +71,12 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId));
     }
 
-    // Goal 建立驗證：即使繞過 Zod／service，直接呼叫 Firestore 都要過呢關。
-    function isValidNewGoal(userId) {
+    // 新增同更新共用：驗證更新後嘅大目標欄位、日期及本人分類。
+    function isValidGoal(userId) {
       let data = request.resource.data;
 
       return data.keys().hasAll([
           'userId', 'title', 'categoryId', 'status', 'createdAt', 'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'userId', 'title', 'description', 'categoryId',
-          'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
         ])
         && data.userId is string && data.userId == userId
         && data.title is string && data.title == data.title.trim()
@@ -99,10 +95,20 @@ service cloud.firestore {
         && (!('targetDate' in data) || data.targetDate is timestamp)
         // 只有兩個日期都存在時，先檢查先後順序。
         && (!('startDate' in data) || !('targetDate' in data) || data.targetDate >= data.startDate)
-        // 初始狀態同 server 時間唔由使用者任意指定。
+        && data.status in ['not_started', 'in_progress', 'completed', 'paused']
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+
+    // 新增只准新版欄位；初始狀態及時間由 service／server 提供。
+    function isValidNewGoal(userId) {
+      let data = request.resource.data;
+      return isValidGoal(userId)
+        && data.keys().hasOnly([
+          'userId', 'title', 'description', 'categoryId',
+          'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
+        ])
         && data.status == 'not_started'
-        && data.createdAt is timestamp && data.createdAt == request.time
-        && data.updatedAt is timestamp && data.updatedAt == request.time;
+        && data.createdAt == request.time && data.updatedAt == request.time;
     }
 
     // 子目標唔可以懸空；parent 路徑同欄位擁有者都要正確。
@@ -180,8 +186,15 @@ service cloud.firestore {
     match /users/{userId}/goals/{goalId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidNewGoal(userId);
-      // 舊目標仍可由本人讀取；新資料格式只喺 create 時檢查，唔會刪除舊資料。
-      // 今步未開放大目標 update／delete／進度歷史。
+      allow update: if isOwner(userId) && resource.data.userId == userId
+        && isValidGoal(userId)
+        // affectedKeys 包括新增、修改及刪除嘅欄位；只准改以下幾個。
+        // 因此 userId、createdAt、status 同舊計量欄位一律保留原值。
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'categoryId', 'startDate', 'targetDate', 'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time;
+      // 大目標 delete／進度歷史仍未開放；細目標編輯留到 Task 26c。
       match /subGoals/{subGoalId} {
         allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)

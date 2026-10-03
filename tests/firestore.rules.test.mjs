@@ -10,6 +10,7 @@ import {
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -459,11 +460,86 @@ describe("goal Firestore rules", () => {
     }
   });
 
-  it("keeps parent updates, deletion and progress history closed for now", async () => {
+  it("allows owner metadata edits and clearing optional fields without changing progress or children", async () => {
+    await seedCategory("alice", "new-goal-category");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const goal = doc(db, "users/alice/goals/editable-parent");
+    await assertSucceeds(setDoc(goal, validGoal()));
+    const child = doc(goal, "subGoals/kept-child");
+    await assertSucceeds(setDoc(child, validCountSubGoal({ goalId: goal.id })));
+    // 模擬將來狀態功能已將目標設為進行中；編輯唔應該重設狀態。
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), goal.path), { status: "in_progress" });
+    });
+    const beforeEdit = (await getDoc(goal)).data();
+    await assertSucceeds(updateDoc(goal, {
+      title: "改善英文 speaking", description: "練習日常對話", categoryId: "new-goal-category",
+      startDate: Timestamp.fromDate(new Date(2026, 9, 3)),
+      targetDate: Timestamp.fromDate(new Date(2026, 9, 12)), updatedAt: serverTimestamp(),
+    }));
+    const edited = (await getDoc(goal)).data();
+    assert.equal(edited.title, "改善英文 speaking");
+    assert.equal(edited.categoryId, "new-goal-category");
+    assert.equal(edited.status, "in_progress");
+    assert.ok(edited.createdAt.isEqual(beforeEdit.createdAt));
+    // deleteField 真正移除原值，唔係保存空字串或 null。
+    await assertSucceeds(updateDoc(goal, {
+      description: deleteField(), startDate: deleteField(), targetDate: deleteField(), updatedAt: serverTimestamp(),
+    }));
+    const cleared = (await getDoc(goal)).data();
+    for (const field of ["description", "startDate", "targetDate"]) assert.equal(field in cleared, false);
+    const keptChild = (await getDoc(child)).data();
+    assert.equal(keptChild.title, "學單字");
+    assert.equal(keptChild.currentValue, 0);
+    assert.equal(keptChild.targetValue, 300);
+  });
+
+  it("rejects guests, other owners and updates to missing goals", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const goal = doc(db, "users/alice/goals/update-owner");
+    await assertSucceeds(setDoc(goal, validGoal()));
+    for (const context of [testEnv.unauthenticatedContext(), testEnv.authenticatedContext("bob")]) {
+      await assertFails(updateDoc(doc(context.firestore(), goal.path), { title: "Changed", updatedAt: serverTimestamp() }));
+    }
+    await assertFails(updateDoc(doc(db, "users/alice/goals/missing-update"), { title: "Changed", updatedAt: serverTimestamp() }));
+  });
+
+  it("rejects forged goal identity, status, creation time, extra fields and removal of required fields", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const goal = doc(db, "users/alice/goals/protected-parent");
+    await assertSucceeds(setDoc(goal, validGoal()));
+    for (const changes of [
+      { userId: "bob" }, { createdAt: Timestamp.fromMillis(0) }, { status: "completed" },
+      { currentValue: 5 }, { targetValue: 10 }, { unit: "題" }, { color: "red" },
+      { updatedAt: Timestamp.fromMillis(0) },
+      { title: deleteField() }, { categoryId: deleteField() }, { userId: deleteField() },
+      { createdAt: deleteField() }, { status: deleteField() },
+    ]) {
+      await assertFails(updateDoc(goal, { updatedAt: serverTimestamp(), ...changes }));
+    }
+    assert.equal((await getDoc(goal)).data().status, "not_started");
+  });
+
+  it("rejects invalid edited text, category references and dates", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const goal = doc(db, "users/alice/goals/invalid-edit");
+    await assertSucceeds(setDoc(goal, validGoal()));
+    for (const changes of [
+      { title: " " }, { title: " untrimmed " }, { title: "a".repeat(101) },
+      { description: 123 }, { description: "a".repeat(2001) },
+      { categoryId: "missing-category" }, { categoryId: "bob-goal-category" },
+      { categoryId: "wrong-owner-category" }, { categoryId: "../bob" }, { categoryId: "." },
+      { startDate: null }, { targetDate: "2026-10-03" },
+      { startDate: Timestamp.fromDate(new Date(2026, 9, 12)), targetDate: Timestamp.fromDate(new Date(2026, 9, 3)) },
+    ]) {
+      await assertFails(updateDoc(goal, { ...changes, updatedAt: serverTimestamp() }));
+    }
+  });
+
+  it("keeps parent deletion and progress history closed", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const goal = doc(db, "users/alice/goals/locked-goal");
     await assertSucceeds(setDoc(goal, validGoal()));
-    await assertFails(updateDoc(goal, { title: "Changed", updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(goal, { currentValue: 5, updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(goal));
     for (const path of ["updates/forged-progress", "subGoals/child/updates/progress"]) {
@@ -486,6 +562,16 @@ describe("goal Firestore rules", () => {
     const snapshot = await assertSucceeds(getDoc(doc(db, "users/alice/goals/legacy-goal")));
     assert.equal(snapshot.data().currentValue, 3);
     assert.equal(snapshot.data().unit, "題");
+    // 只改新版可編輯欄位，舊計量欄位保持原值，唔暗中遷移或刪除。
+    await assertSucceeds(updateDoc(snapshot.ref, { title: "Updated legacy title", updatedAt: serverTimestamp() }));
+    const edited = (await getDoc(snapshot.ref)).data();
+    assert.equal(edited.title, "Updated legacy title");
+    assert.equal(edited.status, "in_progress");
+    assert.equal(edited.targetValue, 10);
+    assert.equal(edited.currentValue, 3);
+    assert.equal(edited.unit, "題");
+    assert.ok(edited.createdAt.isEqual(snapshot.data().createdAt));
+    await assertFails(updateDoc(snapshot.ref, { unit: deleteField(), updatedAt: serverTimestamp() }));
     await assertSucceeds(getDocs(collection(db, "users/alice/goals")));
     await assertFails(getDoc(doc(testEnv.authenticatedContext("bob").firestore(), "users/alice/goals/legacy-goal")));
   });

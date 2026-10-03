@@ -627,20 +627,43 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 點解 UID 唔由表單傳入？② parent 不存在可唔可以新增？③ service 已設定 0，點解 Rules 仲檢查 0？④ 今步可唔可以修改／刪除細目標？
   - 理解確認：使用者答對登入身份來源、不存在 parent 拒絕新增、繞過 service 偽造進度仍需 Rules 檢查，以及目前只開放 read/create。已補充第 3 題係直接向 Firestore 發 request，唔必須經我哋嘅 backend。
 
-- [ ] Task 25c — 同頁建立大目標同可選細目標，再顯示列表。
+- [x] Task 25c — complete：同頁建立大目標同可選細目標，再顯示列表。
   - 做：新增目標頁直接填大目標及零個或多個細目標，最後按一次儲存；按 kind 顯示必要欄位，詳情頁列出 checklist／計量進度。
   - 檔案：goal-form.tsx、sub-goal-fields.tsx、sub-goal-list.tsx、goal-detail.tsx、goals/new/page.tsx、goal.schema.ts、goal.service.ts、firestore.rules 同測試。
   - 驗收：只建立大目標亦可；同一表單建立英文大目標連「搵老師」同「單字 300 個」，成功後直接去詳情頁顯示兩筆，refresh 後仍存在。任何一筆失敗都唔會部分儲存，亦保留輸入。
-  - 已實作（2026-10-03，待手動驗收同理解確認）：GoalForm 用 useFieldArray 增減細目標；SubGoalFields 共用主表單狀態，count 先顯示數量／單位，valueAsNumber 將數量轉 number，切回 checklist 用 unregister 移除 count 欄位。唔用 field array 全局 shouldUnregister，避免移除／重排時丟失其他行。成功先 reset 及導向新詳情頁；失敗保留輸入，送出時 disable fieldset。
-  - Service／Rules：goalCreationSchema 驗證 parent 同 optional subGoals；createGoal 用 writeBatch 一次寫 parent／children，初始狀態及時間由 service 補上，subGoals 唔塞入 parent document。Rules create 用 getAfter 檢查同批完成後嘅本人 parent；read 保留既有 parent 檢查。未部署正式 Rules。
+  - 完成日期：2026-10-03；使用者確認 Task 25c 完成，理解確認通過。
+  - 已實作：GoalForm 用 useFieldArray 增減細目標；SubGoalFields 共用主表單狀態，count 先顯示數量／單位，valueAsNumber 將數量轉 number，切回 checklist 用 unregister 移除 count 欄位。唔用 field array 全局 shouldUnregister，避免移除／重排時丟失其他行。成功先 reset 及導向新詳情頁；失敗保留輸入，送出時 disable fieldset。
+  - Service／Rules：goalCreationSchema 驗證 parent 同 optional subGoals；createGoal 用 writeBatch 一次寫 parent／children，初始狀態及時間由 service 補上，subGoals 唔塞入 parent document。Rules create 用 getAfter 檢查同批完成後嘅本人 parent；read 保留既有 parent 檢查。Agent 未部署正式 Rules，未另行核實使用者嘅部署輸出。
   - 列表：詳情頁只顯示本人 parent 同 SubGoalList，移除獨立新增細目標表單；loading／error／empty、離頁 cleanup；checklist 顯示完成狀態，count 顯示 currentValue / targetValue 同單位。未加入修改、刪除或進度操作。
-  - 自動驗收：test:rules 35/35（batch 成功同非法 child 令整批回滾）、test:schema 22/22（optional／nested 驗證）、test:goals 5/5、lint、typecheck、Webpack production build、diff whitespace 檢查通過。Chrome 確認同頁動態加入兩種細目標、移除第一行後其他資料保留、切回 checklist 移除數量／單位、錯誤提交保留輸入。測試只用 demo emulator，未寫入正式 Firestore；正式新增後顯示及 refresh 待使用者確認。
+  - 自動驗收：test:rules 35/35（batch 成功同非法 child 令整批回滾）、test:schema 22/22（optional／nested 驗證）、test:goals 5/5、lint、typecheck、Webpack production build、diff whitespace 檢查通過。Chrome 確認同頁動態加入兩種細目標、移除第一行後其他資料保留、切回 checklist 移除數量／單位、錯誤提交保留輸入。測試只用 demo emulator，Agent 未寫入正式 Firestore；使用者確認完成驗收。
   - 理解問題：① 點解用 writeBatch 一次儲存，唔分開逐筆新增？② 冇細目標可唔可以儲存？③ 點解 count 要 valueAsNumber？
+  - 理解確認：使用者答對冇細目標亦可儲存，以及其中一筆被 Rules 拒絕就整批唔保存。經講解後，使用者分清「加入細目標」只更新表單記憶體、「儲存目標」先寫 Firestore；未儲存就 refresh 會消失。失敗唔 reset，避免丟失輸入；reset 回復 defaultValues，唔一定全部係空字串。
 
 - [ ] Task 26 — 編輯大目標／子目標。
-  - 做：更新標題、描述等合法欄位，保護 owner／createdAt／parent；有進度後唔改計量定義。實作前如太大再拆步。
-  - 檔案：goal／子目標 service、表單、edit page、Rules 同測試。
-  - 驗收：預填／更新正常；編輯唔可以偷改完成狀態或計量進度。
+  - 拆細（2026-10-03）：先完成以下 26a–26d，唔一次改晒兩種資料同表單。
+
+- [x] Task 26a — complete：大目標更新 service 同 Rules。
+  - 做：沿用 goalSchema，更新標題、描述、本人分類及可選日期；清空可選欄位會刪除原值。保護 userId、createdAt、status 同原有其他欄位，細目標保持不變。
+  - 檔案：goal.service.ts、firestore.rules、tests/firestore.rules.test.mjs 同本文件。
+  - 驗收：本人可以更新合法欄位；未登入／他人／不存在目標、非法分類／日期、偽造身份／狀態／時間均拒絕；舊計量資料保留。今步只驗證資料層，未接編輯表單。
+  - 完成日期：2026-10-03；資料層自動驗收及理解確認通過。
+  - 已實作：updateGoal(goalId, input) 沿用 goalSchema；從登入狀態取 UID，檢查本人目標存在及所選本人分類。新增同編輯共用 assertOwnCategory。updateDoc 只寫可編輯欄位及 serverTimestamp 更新時間；描述／日期留空用 deleteField 移除原值。
+  - Rules：抽出 isValidGoal 作新增／更新共用欄位驗證；新增仍限制新版欄位、not_started 及 server 建立時間。更新用 diff(resource.data).affectedKeys().hasOnly 限制可改欄位，保護身份／建立時間／狀態及原有其他欄位；舊計量資料可以保留而唔被重新解釋。細目標 update／delete、大目標 delete／history 仍未開放。
+  - 自動驗收：Rules 39/39（新增 4 個更新測試，另驗證舊格式更新保留原值）、schema 22/22、lint、TypeScript、diff whitespace 檢查通過。Emulator 驗證合法更新／清空欄位、細目標保留、跨身份／非法資料拒絕。未新增套件，Agent 未部署 Rules 或改正式資料；今步冇 UI 改動，未重跑 production build。
+  - 理解問題：① 改標題後，原本 in_progress 嘅狀態會唔會重設為 not_started？Rules 點樣限制？② 日期清空時只省略 targetDate 可唔可以移除舊值？點解要 deleteField？
+  - 理解確認：使用者答對編輯標題唔會重設狀態。經例子解釋後，確認省略 targetDate 會保留原值，清空日期必須傳入 deleteField；createdAt 係建立時間，唔用來移除目標日期。
+
+- [ ] Task 26b — 大目標編輯表單。
+  - 做：新增 /goals/[id]/edit 入口，預填大目標資料；沿用現有欄位及驗證，失敗保留輸入，成功返回詳情。
+  - 驗收：預填、取消、儲存及 refresh 正常，細目標唔被重建。
+
+- [ ] Task 26c — 細目標更新 service 同 Rules。
+  - 做：更新標題／描述；count 冇進度先可改目標數量／單位。kind、userId、goalId、createdAt、isCompleted／currentValue 受保護。
+  - 驗收：拒絕跨用戶／parent、偽造進度／完成狀態，以及有進度後改計量定義。
+
+- [ ] Task 26d — 細目標編輯表單。
+  - 做：詳情頁編輯既有細目標，預填資料；有進度時鎖定計量定義，失敗保留輸入。
+  - 驗收：更新成功後列表顯示新資料，refresh 後仍在；取消唔儲存。
 
 - [ ] Task 27 — 刪除政策同關聯保護。
   - 做：空目標先可刪；有子目標、歷史或 learning 關聯先顯示原因並禁止，唔靜默 cascade。需要追蹤關聯就先拆步。
@@ -710,4 +733,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 25c 已實作及通過自動檢查，待手動驗收同理解確認。** 下一步 Task 26；未開始。
+**Task 26a complete。** 下一步 Task 26b：大目標編輯表單；等使用者指示，26b–26d 未開始。
