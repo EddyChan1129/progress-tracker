@@ -640,7 +640,7 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解確認：使用者答對冇細目標亦可儲存，以及其中一筆被 Rules 拒絕就整批唔保存。經講解後，使用者分清「加入細目標」只更新表單記憶體、「儲存目標」先寫 Firestore；未儲存就 refresh 會消失。失敗唔 reset，避免丟失輸入；reset 回復 defaultValues，唔一定全部係空字串。
 
 - [ ] Task 26 — 編輯大目標／子目標。
-  - 拆細（2026-10-03）：先完成以下 26a–26d，唔一次改晒兩種資料同表單。
+  - 拆細（2026-10-03）：原先拆成 26a–26d；使用者之後要求統一編輯，26c／26d 已合併到 26b。
 
 - [x] Task 26a — complete：大目標更新 service 同 Rules。
   - 做：沿用 goalSchema，更新標題、描述、本人分類及可選日期；清空可選欄位會刪除原值。保護 userId、createdAt、status 同原有其他欄位，細目標保持不變。
@@ -653,17 +653,16 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 改標題後，原本 in_progress 嘅狀態會唔會重設為 not_started？Rules 點樣限制？② 日期清空時只省略 targetDate 可唔可以移除舊值？點解要 deleteField？
   - 理解確認：使用者答對編輯標題唔會重設狀態。經例子解釋後，確認省略 targetDate 會保留原值，清空日期必須傳入 deleteField；createdAt 係建立時間，唔用來移除目標日期。
 
-- [ ] Task 26b — 大目標編輯表單。
-  - 做：新增 /goals/[id]/edit 入口，預填大目標資料；沿用現有欄位及驗證，失敗保留輸入，成功返回詳情。
-  - 驗收：預填、取消、儲存及 refresh 正常，細目標唔被重建。
-
-- [ ] Task 26c — 細目標更新 service 同 Rules。
-  - 做：更新標題／描述；count 冇進度先可改目標數量／單位。kind、userId、goalId、createdAt、isCompleted／currentValue 受保護。
-  - 驗收：拒絕跨用戶／parent、偽造進度／完成狀態，以及有進度後改計量定義。
-
-- [ ] Task 26d — 細目標編輯表單。
-  - 做：詳情頁編輯既有細目標，預填資料；有進度時鎖定計量定義，失敗保留輸入。
-  - 驗收：更新成功後列表顯示新資料，refresh 後仍在；取消唔儲存。
+- [x] Task 26b — complete：整個目標同頁編輯（大目標＋細目標）。
+  - 2026-10-03 使用者修正：編輯應該一次編輯整個 Goal，唔分大／細目標頁。原 26c／26d 納入今步，唔再做獨立細目標編輯入口。
+  - 已實作：/goals/[id]/edit 沿用 GoalForm，一齊讀取分類／大目標／細目標，用 reset 預填。原有細目標保留 ID、類型、進度、建立時間；同頁可以新增細目標，取消放棄整份修改。
+  - 儲存：updateGoal 用 writeBatch 原子更新大／細目標及新增行；任何一筆被拒絕，整批唔保存。既有行不能移除或重排，ID 按原有行順序對應；新行可移除。既有細目標刪除政策仍留 Task 27。
+  - 保護：只改標題／描述及未有進度 count 嘅數量／單位。有進度時 UI readOnly，service 及 Rules 再次核實最新數值；禁止修改身份、parent、kind、進度、完成狀態及建立時間。
+  - 自動驗收：Rules 42/42、schema 22/22、goal data 5/5、lint、typecheck、Webpack production build 通過。測試含 parent＋child＋new child 原子寫入、非法 child 整批回滾、進度鎖定、跨身份、受保護欄位及不存在 child 拒絕。
+  - Chrome：大／細目標一起預填、細目標空標題阻止儲存且保留內容、同頁新增草稿行通過。使用者已部署 Rules 並完成儲存／refresh 驗收。
+  - 前版驗收曾新增分類「Task 26b 驗收」並保留；test big 標題／日期已還原，updatedAt 因儲存而更新。
+  - 理解問題：① 點解原有細目標用原 ID 更新，而唔全部刪除再建立？② 其中一個細目標被 Rules 拒絕，大目標會唔會仍然保存？
+  - 理解確認：使用者答對保留原記錄同 ID，以及 writeBatch 任一筆失敗會令整批唔保存。
 
 - [ ] Task 27 — 刪除政策同關聯保護。
   - 做：空目標先可刪；有子目標、歷史或 learning 關聯先顯示原因並禁止，唔靜默 cascade。需要追蹤關聯就先拆步。
@@ -733,4 +732,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 26a complete。** 下一步 Task 26b：大目標編輯表單；等使用者指示，26b–26d 未開始。
+**Task 26a、26b complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步等使用者指示，唔自動進入 Task 27。

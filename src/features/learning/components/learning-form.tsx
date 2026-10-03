@@ -8,6 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toDateInputValue } from "@/lib/date-input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
@@ -27,20 +28,7 @@ import { LearningImages } from "@/features/learning/components/learning-images";
 import type { LearningEntry, LearningImage } from "@/features/learning/types/learning.types";
 
 function getToday() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function toDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return toDateInputValue(new Date());
 }
 
 export function LearningForm({ entryId }: { entryId?: string }) {

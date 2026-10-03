@@ -712,7 +712,65 @@ describe("subgoal Firestore rules", () => {
     }
   });
 
-  it("keeps child edits, deletion, history and another level of children closed", async () => {
+  it("atomically edits a parent and existing children, and adds a new child", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const parent = doc(db, "users/alice/goals/sub-parent");
+    const child = doc(parent, "subGoals/edit-count");
+    await assertSucceeds(setDoc(child, validCountSubGoal()));
+    const before = (await getDoc(child)).data();
+    const batch = writeBatch(db);
+    batch.update(parent, { title: "一齊修改", updatedAt: serverTimestamp() });
+    batch.update(child, { title: "學 500 字", targetValue: 500, updatedAt: serverTimestamp() });
+    batch.set(doc(parent, "subGoals/edit-new"), validSubGoal());
+    await assertSucceeds(batch.commit());
+    const after = (await getDoc(child)).data();
+    assert.equal(after.targetValue, 500);
+    assert.equal(after.currentValue, 0);
+    assert.ok(after.createdAt.isEqual(before.createdAt));
+
+    const invalid = writeBatch(db);
+    invalid.update(parent, { title: "唔應該保存", updatedAt: serverTimestamp() });
+    invalid.update(child, { currentValue: 99, updatedAt: serverTimestamp() });
+    await assertFails(invalid.commit());
+    assert.equal((await getDoc(parent)).data().title, "一齊修改");
+    assert.equal((await getDoc(child)).data().currentValue, 0);
+  });
+
+  it("protects child identity, kind, progress and timestamps while allowing text edits", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/edit-checklist");
+    await assertSucceeds(setDoc(ref, validSubGoal({ description: "舊描述" })));
+    await assertSucceeds(updateDoc(ref, { title: "新標題", description: deleteField(), updatedAt: serverTimestamp() }));
+    for (const changes of [
+      { userId: "bob" }, { goalId: "other" }, { kind: "count" }, { isCompleted: true },
+      { createdAt: Timestamp.fromMillis(1) }, { extra: true }, { title: "" },
+      { targetValue: 10 }, { unit: "個" }, { title: deleteField() },
+      { updatedAt: Timestamp.fromMillis(1) },
+    ]) await assertFails(updateDoc(ref, { updatedAt: serverTimestamp(), ...changes }));
+    for (const context of [testEnv.unauthenticatedContext(), testEnv.authenticatedContext("bob")]) {
+      await assertFails(updateDoc(doc(context.firestore(), ref.path), { title: "冒認", updatedAt: serverTimestamp() }));
+    }
+    await assertFails(updateDoc(doc(db, "users/alice/goals/sub-parent/subGoals/missing-edit"), { title: "不存在", updatedAt: serverTimestamp() }));
+  });
+
+  it("locks count measurements after progress, including a stale form save", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/edit-progress");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), ref.path), validCountSubGoal({ currentValue: 5 }));
+    });
+    await assertSucceeds(updateDoc(ref, { title: "改文字", targetValue: 300, unit: "個", updatedAt: serverTimestamp() }));
+    for (const changes of [{ targetValue: 500 }, { unit: "次" }, { currentValue: 0 }, { targetValue: deleteField() }]) {
+      await assertFails(updateDoc(ref, { ...changes, updatedAt: serverTimestamp() }));
+    }
+    const batch = writeBatch(db);
+    batch.update(doc(db, "users/alice/goals/sub-parent"), { title: "過期表單", updatedAt: serverTimestamp() });
+    batch.update(ref, { targetValue: 500, updatedAt: serverTimestamp() });
+    await assertFails(batch.commit());
+    assert.notEqual((await getDoc(doc(db, "users/alice/goals/sub-parent"))).data().title, "過期表單");
+  });
+
+  it("keeps progress edits, deletion, history and another level of children closed", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const ref = doc(db, "users/alice/goals/sub-parent/subGoals/locked");
     await assertSucceeds(setDoc(ref, validSubGoal()));

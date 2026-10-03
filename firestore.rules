@@ -151,6 +151,28 @@ service cloud.firestore {
             && data.unit.size() > 0 && data.unit.size() <= 20));
     }
 
+    function isValidSubGoalUpdate(userId, goalId) {
+      let data = request.resource.data;
+      let old = resource.data;
+      let changed = data.diff(old).affectedKeys();
+      return old.userId == userId && old.goalId == goalId
+        // 只准改文字／計量定義；身份、類型、進度及建立時間原封保留。
+        && changed.hasOnly(['title', 'description', 'targetValue', 'unit', 'updatedAt'])
+        && data.title is string && data.title == data.title.trim()
+        && data.title.size() > 0 && data.title.size() <= 100
+        && data.get('description', '') is string
+        && data.get('description', '') == data.get('description', '').trim()
+        && data.get('description', '').size() <= 2000
+        && data.updatedAt == request.time
+        && ((old.kind == 'checklist' && !changed.hasAny(['targetValue', 'unit']))
+          || (old.kind == 'count'
+            && data.targetValue is number && data.targetValue > 0
+            && data.targetValue - data.targetValue == 0
+            && data.unit is string && data.unit == data.unit.trim()
+            && data.unit.size() > 0 && data.unit.size() <= 20
+            && (old.currentValue == 0 || !changed.hasAny(['targetValue', 'unit']))));
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
@@ -194,12 +216,14 @@ service cloud.firestore {
           'title', 'description', 'categoryId', 'startDate', 'targetDate', 'updatedAt'
         ])
         && request.resource.data.updatedAt == request.time;
-      // 大目標 delete／進度歷史仍未開放；細目標編輯留到 Task 26c。
+      // 大目標 delete／進度歷史仍未開放。
       match /subGoals/{subGoalId} {
         allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)
           && isValidNewSubGoal(userId, goalId);
-        // 修改、刪除同進度歷史留到之後嘅 task，暫時拒絕。
+        allow update: if isOwner(userId) && hasOwnGoal(userId, goalId)
+          && isValidSubGoalUpdate(userId, goalId);
+        // 刪除同進度歷史留到之後嘅 task。
       }
     }
 

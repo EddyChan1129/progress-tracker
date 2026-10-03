@@ -8,14 +8,18 @@ import { useFieldArray, useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toDateInputValue } from "@/lib/date-input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
 import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
-import { createGoal } from "@/features/goals/services/goal.service";
+import { createGoal, getGoal, updateGoal } from "@/features/goals/services/goal.service";
+import { getSubGoals } from "../services/sub-goal.service";
+import type { SubGoal } from "../types/sub-goal.types";
 import { SubGoalFields } from "./sub-goal-fields";
 
-export function GoalForm() {
+export function GoalForm({ goalId }: { goalId?: string }) {
   const router = useRouter();
+  const [existingSubGoals, setExistingSubGoals] = useState<SubGoal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -31,30 +35,62 @@ export function GoalForm() {
 
   useEffect(() => {
     let isCurrent = true;
-    getCategories()
-      .then((result) => { if (isCurrent) setCategories(result); })
-      .catch(() => { if (isCurrent) setLoadError("未能載入分類，請重新整理再試。"); })
+    Promise.all([getCategories(), goalId ? getGoal(goalId) : Promise.resolve(null),
+      goalId ? getSubGoals(goalId) : Promise.resolve([])])
+      .then(([categoryResult, goal, subGoals]) => {
+        if (!isCurrent) return;
+        setCategories(categoryResult);
+        setExistingSubGoals(subGoals);
+        if (goalId && !goal) {
+          setLoadError("搵唔到呢個目標，或者佢唔屬於你。");
+          return;
+        }
+        if (goal) {
+          // 讀完先預填；reset 同時將讀返嘅資料設為表單基準值。
+          reset({
+            title: goal.title, description: goal.description ?? "", categoryId: goal.categoryId,
+            startDate: goal.startDate ? toDateInputValue(goal.startDate) : "",
+            targetDate: goal.targetDate ? toDateInputValue(goal.targetDate) : "",
+            subGoals: subGoals.map((subGoal) => ({
+              title: subGoal.title, description: subGoal.description ?? "", kind: subGoal.kind,
+              ...(subGoal.kind === "count" ? { targetValue: subGoal.targetValue, unit: subGoal.unit } : {}),
+            })),
+          });
+        }
+      })
+      .catch(() => { if (isCurrent) setLoadError("未能載入資料，請重新整理再試。"); })
       .finally(() => { if (isCurrent) setIsLoading(false); });
     // 離開頁面後，唔再用舊 request 結果更新 state。
     return () => { isCurrent = false; };
-  }, []);
+  }, [goalId, reset]);
 
   async function onSubmit(input: GoalCreationInput) {
     try {
-      const goalId = await createGoal(input);
+      if (goalId) {
+        // 保留原有細目標 ID，連同大目標一次儲存；唔重建進度。
+        await updateGoal(goalId, input, existingSubGoals.map((subGoal) => subGoal.id));
+        router.push(`/goals/${goalId}`);
+        return;
+      }
+      const newGoalId = await createGoal(input);
       reset(); // 確認儲存成功先清空；失敗保留原本輸入。
-      router.push(`/goals/${goalId}`); // 儲存成功後直接睇返大目標同細目標。
+      router.push(`/goals/${newGoalId}`); // 儲存成功後直接睇返大目標同細目標。
     } catch {
-      setError("root", { message: "新增目標失敗，請再試一次。" });
+      setError("root", { message: goalId ? "儲存修改失敗，請再試一次。" : "新增目標失敗，請再試一次。" });
     }
   }
 
-  if (isLoading) return <p className="mt-8 text-sm text-muted-foreground" role="status">載入分類中…</p>;
-  if (loadError) return <p className="mt-8 text-sm text-destructive" role="alert">{loadError}</p>;
+  if (isLoading) return <p className="mt-8 text-sm text-muted-foreground" role="status">載入資料中…</p>;
+  if (loadError) return (
+    <div className="mt-8 space-y-4">
+      <p className="text-sm text-destructive" role="alert">{loadError}</p>
+      <Button asChild variant="outline"><Link href="/goals">返回目標列表</Link></Button>
+    </div>
+  );
   if (categories.length === 0) {
     return (
       <div className="mt-8 max-w-lg space-y-4 rounded-xl border bg-card p-6">
-        <p>新增目標前，請先建立至少一個分類。</p>
+        <p>儲存目標前，請先建立至少一個分類。</p>
         <Button asChild variant="outline"><Link href="/categories">先新增分類</Link></Button>
       </div>
     );
@@ -111,20 +147,23 @@ export function GoalForm() {
         <p className="text-sm text-muted-foreground">日期未定可以留空，亦可以只填其中一個。</p>
         <section className="space-y-4 border-t pt-5" aria-labelledby="new-sub-goals-heading">
           <h2 id="new-sub-goals-heading" className="text-lg font-semibold">細目標（可選）</h2>
-          <p className="text-sm text-muted-foreground">可以留空，或者加入幾個細目標，最後一齊儲存。</p>
+          <p className="text-sm text-muted-foreground">大目標同細目標會一齊儲存；新加入嘅細目標可以先移除。</p>
           {fields.map((field, index) => (
             <div key={field.id} className="space-y-4 rounded-xl border p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-medium">細目標 {index + 1}</h3>
-                <Button type="button" variant="outline" size="sm" onClick={() => remove(index)} aria-label={`移除細目標 ${index + 1}`}>移除</Button>
+                {index >= existingSubGoals.length ? <Button type="button" variant="outline" size="sm" onClick={() => remove(index)} aria-label={`移除細目標 ${index + 1}`}>移除</Button> : null}
               </div>
-              <SubGoalFields index={index} control={control} register={register} formState={formState}
+              <SubGoalFields index={index} existing={existingSubGoals[index]} control={control} register={register} formState={formState}
                 getFieldState={getFieldState} setValue={setValue} unregister={unregister} />
             </div>
           ))}
           <Button type="button" variant="outline" onClick={() => append({ kind: "checklist", title: "", description: "" })}>加入細目標</Button>
         </section>
-        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "儲存中…" : "儲存目標"}</Button>
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "儲存中…" : goalId ? "儲存修改" : "儲存目標"}</Button>
+          {goalId ? <Button type="button" variant="outline" onClick={() => router.push(`/goals/${goalId}`)}>取消</Button> : null}
+        </div>
       </fieldset>
       <div aria-live="polite">
         {errors.root ? <p className="text-sm text-destructive" role="alert">{errors.root.message}</p> : null}

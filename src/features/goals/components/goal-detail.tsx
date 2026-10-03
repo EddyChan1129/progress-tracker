@@ -35,6 +35,7 @@ export function GoalDetail({ goalId }: { goalId: string }) {
         : goal ? (
           <>
             <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
+            <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button>
             <section className="space-y-5" aria-labelledby="sub-goals-heading">
               <h2 id="sub-goals-heading" className="text-xl font-semibold">細目標</h2>
               <SubGoalList key={goal.id} goalId={goal.id} />

@@ -8,12 +8,11 @@ import {
   query,
   serverTimestamp,
   Timestamp,
-  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
-import { goalCreationSchema, goalSchema, type GoalCreationInput, type GoalInput } from "@/features/goals/schemas/goal.schema";
+import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
 import { db } from "@/lib/firebase/client";
 import type { Goal } from "@/features/goals/types/goal.types";
 import { toGoal } from "./goal-data";
@@ -69,9 +68,14 @@ export async function createGoal(input: GoalCreationInput) {
   return goal.id;
 }
 
-export async function updateGoal(goalId: string, input: GoalInput) {
+// existingIds 按表單前面嘅既有細目標排序；新加入嘅行冇舊 ID。
+export async function updateGoal(goalId: string, input: GoalCreationInput, existingIds: string[] = []) {
   const userId = getCurrentUserId();
-  const { title, description, categoryId, startDate, targetDate } = goalSchema.parse(input);
+  const { title, description, categoryId, startDate, targetDate, subGoals = [] } = goalCreationSchema.parse(input);
+  if (existingIds.length > subGoals.length || new Set(existingIds).size !== existingIds.length
+    || existingIds.some((id) => !id.trim() || id !== id.trim() || id.includes("/") || [".", ".."].includes(id))) {
+    throw new Error("細目標不正確。");
+  }
   if (!goalId.trim() || goalId !== goalId.trim() || goalId.includes("/") || [".", ".."].includes(goalId)) {
     throw new Error("目標不正確。");
   }
@@ -82,8 +86,9 @@ export async function updateGoal(goalId: string, input: GoalInput) {
   }
   await assertOwnCategory(userId, categoryId);
 
-  // 只更新可編輯欄位，唔覆寫身份、建立時間、狀態或細目標。
-  await updateDoc(ref, {
+  const batch = writeBatch(db);
+  // 只更新可編輯欄位，唔覆寫身份、建立時間或狀態。
+  batch.update(ref, {
     title, categoryId,
     // 編輯時留空代表移除舊值；省略欄位反而會保留原值。
     description: description || deleteField(),
@@ -91,6 +96,34 @@ export async function updateGoal(goalId: string, input: GoalInput) {
     targetDate: targetDate ? Timestamp.fromDate(targetDate) : deleteField(),
     updatedAt: serverTimestamp(),
   });
+
+  const existing = await Promise.all(existingIds.map((id) => getDoc(doc(ref, "subGoals", id))));
+  for (const [index, subGoal] of subGoals.entries()) {
+    const previous = existing[index];
+    if (previous) {
+      const data = previous.data();
+      if (!data || data.userId !== userId || data.goalId !== goalId || data.kind !== subGoal.kind) {
+        throw new Error("搵唔到本人嘅細目標，或者類型已改變。");
+      }
+      if (subGoal.kind === "count" && data.currentValue !== 0
+        && (data.targetValue !== subGoal.targetValue || data.unit !== subGoal.unit)) {
+        throw new Error("已有進度嘅細目標唔可以更改數量或單位。");
+      }
+      batch.update(previous.ref, {
+        title: subGoal.title, description: subGoal.description || deleteField(),
+        ...(subGoal.kind === "count" ? { targetValue: subGoal.targetValue, unit: subGoal.unit } : {}),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      batch.set(doc(collection(ref, "subGoals")), {
+        ...subGoal, userId, goalId,
+        ...(subGoal.kind === "checklist" ? { isCompleted: false } : { currentValue: 0 }),
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+    }
+  }
+  // 大／細目標全部成功先儲存；Rules 會再次核實最新進度，防止讀取後被另一個頁面更改。
+  await batch.commit();
 }
 
 // 新增同編輯共用分類檢查；真正權限仍由 Firestore Rules 核實。
