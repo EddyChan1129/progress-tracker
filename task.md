@@ -581,10 +581,18 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 開始日期填咗、目標日期留空，可唔可以新增？兩個都有填但目標日期更早又點？② 點解日期喺 hasOnly 入面，但唔喺 hasAll 入面？
   - 理解確認：經例子講解後，使用者確認只有目標日期亦可新增；兩個日期各自可選，有齊先比較先後。使用者答啱缺少必填 categoryId 由 hasAll 拒絕；已重溫 hasAll 要有齊必填欄位、hasOnly 限制允許欄位但唔要求全部出現。
 
-- [ ] Task 24b — 新版大目標表單。
+- [x] Task 24b — complete：新版大目標表單。
   - 做：新增 GoalForm，同 /goals/new 入口；移除數量／單位，日期可留空；沿用 schema 驗證、loading／error。
   - 檔案：goal form、goals/new page、goals page。
   - 驗收：建立「成為冷氣師傅」或「改善英文 speaking」，未填日期亦可；失敗保留輸入，成功先 reset。
+  - 完成日期：2026-10-03；已實作、通過自動檢查，使用者確認新增成功及 Firestore 記錄存在，理解問題答啱。
+  - 實際檔案：新增 `src/features/goals/components/goal-form.tsx`、`src/app/(app)/goals/new/page.tsx`；更新 `src/app/(app)/goals/page.tsx` 同本文件。冇新增套件或修改 Rules／service。
+  - 表單：標題、可選描述、本人分類、兩個獨立可選日期；日期預設空字串。沿用 React Hook Form／Zod，raw resolver 保留日期 string 交 createGoal parse，避免重複 parse 已轉成 Date 嘅資料。
+  - UX：分類 loading／載入失敗／空分類有處理；空分類提供新增分類連結。送出中 disabled fieldset／按鈕；await createGoal 成功後先 reset，失敗保留輸入並提示重試。
+  - 自動驗收：lint、TypeScript、schema 13/13、`npm run build -- --webpack` 同 diff whitespace 檢查通過，build 已包含 /goals/new。預設 Turbopack build 因執行環境禁止 binding port 失敗，webpack 模式成功；冇改 package scripts。
+  - 手動驗收：使用者確認已成功新增大目標，並於 Firestore 見到記錄。日期可選／反序等驗證已有 schema tests 涵蓋；未另行收到各個手動邊界案例或 Rules 部署輸出，唔當作全部已手動測試。
+  - 理解問題：① 點解 reset 放喺 await createGoal 成功之後，唔放 finally？② 分類選項顯示 category.name，但 value 點解用 category.id？
+  - 理解確認：使用者理解儲存成功先清空、失敗保留輸入；分類 name 顯示俾使用者，id 交 service 識別所選分類。
 
 - [ ] Task 25 — 大目標列表同詳情。
   - 做：getGoals／getGoal；顯示標題、分類、可選日期、狀態；處理舊資料讀取。
@@ -679,4 +687,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 24a 已完成。** 下一步係 Task 24b 新版大目標表單；等使用者明確要求先開始。
+**Task 24b 已完成。** 下一步 Task 25 大目標列表同詳情；等使用者明確要求先開始。
