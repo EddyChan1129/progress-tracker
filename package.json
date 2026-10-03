@@ -13,6 +13,7 @@
     "test:image-save": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --conditions=react-server --test tests/learning-image-save.test.mts\"",
     "test:upload": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --conditions=react-server --test tests/learning-upload.test.mts\"",
     "test:schema": "node --test tests/*.schema.test.mts",
+    "test:goals": "node --test tests/goal-data.test.mts",
     "test:rules": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --test tests/firestore.rules.test.mjs\"",
     "typecheck": "next typegen && tsc --noEmit",
     "test:image-lifecycle": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --conditions=react-server --test tests/learning-image-lifecycle.test.mts\""

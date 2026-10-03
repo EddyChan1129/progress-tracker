@@ -594,10 +594,19 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 點解 reset 放喺 await createGoal 成功之後，唔放 finally？② 分類選項顯示 category.name，但 value 點解用 category.id？
   - 理解確認：使用者理解儲存成功先清空、失敗保留輸入；分類 name 顯示俾使用者，id 交 service 識別所選分類。
 
-- [ ] Task 25 — 大目標列表同詳情。
+- [x] Task 25 — complete：大目標列表同詳情。
   - 做：getGoals／getGoal；顯示標題、分類、可選日期、狀態；處理舊資料讀取。
   - 檔案：goal service、GoalCard／詳情元件、goals page、goals/[id]/page。
   - 驗收：本人資料 refresh 後仍在；不存在／無權限有提示；唔用舊計量數值表示大目標能力。
+  - 完成日期：2026-10-03；已實作、驗證並完成理解確認。
+  - 實際檔案：更新 goal.service、goals/page、package.json；新增 services/goal-data.ts、components/goal-card.tsx、goal-list.tsx、goal-detail.tsx、goals/[id]/page.tsx、tests/goal-data.test.mts 同本文件。
+  - Service：getGoals 從登入者本人 goals 按 createdAt desc 讀取；唔按可選日期排序，避免漏掉未填日期嘅資料。getGoal 只讀本人路徑指定 ID，不存在回傳 null；Rules 未修改，沿用本人 read 權限。
+  - 轉換：toGoal 共用 Timestamp → Date 邏輯，驗證儲存日期／狀態，日期可省略；舊數量欄位唔加入新版 Goal，亦唔修改舊 Firestore 資料。
+  - UI：列表／詳情同分類用 Promise.all 同時讀取，effect cleanup 忽略過期結果。GoalCard 共用標題／描述／分類／狀態／日期顯示，日期未填顯示「未設定」；詳情頁用 await params.id、key={id}，換 ID 時建立新元件。loading／empty／error／不存在目標有處理，缺失分類顯示「未知分類」。
+  - 自動驗收：npm run test:goals 3/3（新舊格式、可選日期、錯誤日期／狀態）、lint、TypeScript、Webpack production build、diff whitespace 檢查通過；build 包含 /goals/[id]。Turbopack 仍因本機 binding port 權限錯誤失敗，冇改 package scripts。
+  - 瀏覽器驗收：唯讀檢查既有 test1 目標，列表／詳情正確顯示 LeetCode、未開始、兩個未設定日期；詳情 refresh 後仍在；不存在 ID 有提示，返回列表正常。未新增／修改／刪除正式資料；未另行切換第二個正式帳戶。
+  - 理解問題：① getGoals 同 getGoal(goalId) 有咩分別？② 未填 targetDate 嘅目標會唔會出現喺列表？③ 點解 getGoal 用登入 UID 組合路徑，而唔接受頁面傳入 userId？
+  - 理解確認：使用者分清 getGoals 讀全部大目標、getGoal(goalId) 讀指定大目標，細目標尚未實作；確認未填 targetDate 亦會出現。使用者理解登入 UID 用於識別本人；已補充 UID 字串本身唔證明身份，Firebase Auth 提供登入身份、Rules 核實權限。
 
 - [ ] Task 25a — 子目標型別同 schema。
   - 做：一層 SubGoal；預設 checklist，count 類型先要求正數目標／單位。例子：搵老師、單字 300 個。
@@ -687,4 +696,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 24b 已完成。** 下一步 Task 25 大目標列表同詳情；等使用者明確要求先開始。
+**Task 25 已完成。** 下一步 Task 25a 子目標型別同 schema；等使用者明確要求先開始。
