@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
+import { auth } from "@/lib/firebase/client";
 import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
 import { db } from "@/lib/firebase/client";
 import type { Goal } from "@/features/goals/types/goal.types";
@@ -30,6 +31,21 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
   const userId = getCurrentUserId();
   const snapshot = await getDoc(doc(db, "users", userId, "goals", goalId));
   return snapshot.exists() ? toGoal(snapshot.id, snapshot.data()) : null;
+}
+
+export async function deleteGoal(goalId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("請先登入。");
+  const response = await fetch("/api/goals", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${await user.getIdToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ goalId }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "刪除目標失敗，請再試一次。");
 }
 
 export async function createGoal(input: GoalCreationInput) {

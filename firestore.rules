@@ -216,7 +216,8 @@ service cloud.firestore {
           'title', 'description', 'categoryId', 'startDate', 'targetDate', 'updatedAt'
         ])
         && request.resource.data.updatedAt == request.time;
-      // 大目標 delete／進度歷史仍未開放。
+      // Client 直接 delete 一律拒絕；Task 27 由 server 驗證冇細目標／關聯後刪除。
+      // 目的係防止繞過 UI，將有關聯資料嘅 parent 留低孤兒資料。
       match /subGoals/{subGoalId} {
         allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)

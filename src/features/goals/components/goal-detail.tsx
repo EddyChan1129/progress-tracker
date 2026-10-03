@@ -2,18 +2,37 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getCategories } from "@/features/categories/services/category.service";
 import { GoalCard } from "@/features/goals/components/goal-card";
-import { getGoal } from "@/features/goals/services/goal.service";
+import { deleteGoal, getGoal } from "@/features/goals/services/goal.service";
 import type { Goal } from "@/features/goals/types/goal.types";
 import { SubGoalList } from "./sub-goal-list";
 
 export function GoalDetail({ goalId }: { goalId: string }) {
+  const router = useRouter();
   const [goal, setGoal] = useState<Goal | null>(null);
   const [categoryName, setCategoryName] = useState("未知分類");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (isDeleting || !goal) return;
+    if (!window.confirm(`確定刪除「${goal.title}」？刪除後無法復原。`)) return;
+    setIsDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteGoal(goal.id);
+      router.push("/goals");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "刪除目標失敗，請再試一次。");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   useEffect(() => {
     let isCurrent = true;
@@ -35,7 +54,13 @@ export function GoalDetail({ goalId }: { goalId: string }) {
         : goal ? (
           <>
             <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
-            <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button>
+              <Button disabled={isDeleting} onClick={handleDelete} type="button" variant="destructive">
+                {isDeleting ? "刪除中…" : "刪除目標"}
+              </Button>
+            </div>
+            {deleteError ? <p className="text-sm text-destructive" role="alert">{deleteError}</p> : null}
             <section className="space-y-5" aria-labelledby="sub-goals-heading">
               <h2 id="sub-goals-heading" className="text-xl font-semibold">細目標</h2>
               <SubGoalList key={goal.id} goalId={goal.id} />

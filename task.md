@@ -664,10 +664,13 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 點解原有細目標用原 ID 更新，而唔全部刪除再建立？② 其中一個細目標被 Rules 拒絕，大目標會唔會仍然保存？
   - 理解確認：使用者答對保留原記錄同 ID，以及 writeBatch 任一筆失敗會令整批唔保存。
 
-- [ ] Task 27 — 刪除政策同關聯保護。
+- [x] Task 27 — complete：刪除政策同關聯保護。
   - 做：空目標先可刪；有子目標、歷史或 learning 關聯先顯示原因並禁止，唔靜默 cascade。需要追蹤關聯就先拆步。
   - 檔案：service、刪除 UI、Rules 同測試。
   - 驗收：Rules 同樣防止繞過 UI 刪除有關聯資料，避免孤兒資料。
+  - 已實作（2026-10-04）：詳情頁加入刪除目標；server API 先驗證登入 UID，再用 transaction 檢查目標、subGoals 同 relatedGoalId learning entries。任何關聯存在就回傳原因，空目標先刪除。Client 直接 delete 仍由 Rules 拒絕，避免繞過 server 檢查。
+  - 驗證：lint、typecheck、Webpack build 通過；Rules 既有 direct-delete 拒絕測試保留。Firestore emulator 受目前環境 port／權限限制，今次未能重新執行完整 test:rules。
+  - 理解確認：使用者明白唔係靠隱藏 backend logic 保護，而係由 server 驗證 token／關聯、Rules 阻止 client 直接刪除；亦答對有細目標時拒絕刪除，唔做 cascade delete。
 
 ## Phase 7 — 子目標完成、計量進度同大目標狀態
 
@@ -732,4 +735,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 26a、26b complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步等使用者指示，唔自動進入 Task 27。
+**Task 26a、26b、27 complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步等使用者指示，唔自動進入 Task 28。
