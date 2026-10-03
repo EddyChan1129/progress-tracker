@@ -7,6 +7,7 @@ export interface ImageSaveAttempt {
   id: string;
   userId: string;
   uploads: Map<File, string>;
+  startedAt?: string;
 }
 
 export async function createLearningEntryWithImages(
@@ -20,11 +21,14 @@ export async function createLearningEntryWithImages(
   const error = validateLearningImages(files, 0);
   if (error) throw new Error(error);
   const token = await user.getIdToken();
+  attempt.startedAt ??= new Date().toISOString();
 
   for (const file of files) {
     if (attempt.uploads.has(file)) continue;
     const form = new FormData();
     form.append("file", file);
+    form.append("title", parsed.title);
+    form.append("startedAt", attempt.startedAt);
     const response = await fetch("/api/learning-images/upload", {
       method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
     });

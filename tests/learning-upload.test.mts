@@ -3,6 +3,7 @@ import { after, it, mock } from "node:test";
 import { v2 as cloudinary, type UploadApiOptions } from "cloudinary";
 
 import { POST } from "../src/app/api/learning-images/upload/route.ts";
+import { learningImageFolder } from "../src/lib/cloudinary/server.ts";
 import { getAdminAuth } from "../src/lib/firebase/admin.ts";
 
 // 全部用本機 dummy config；測試唔會上傳圖片或接觸正式 credentials。
@@ -17,6 +18,8 @@ const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 async function uploadRequest(bytes = png, type = "image/png", extra?: [string, string]) {
   const form = new FormData();
   form.append("file", new File([new Uint8Array(bytes)], "test.png", { type }));
+  form.append("title", "Two Sum");
+  form.append("startedAt", "2026-10-03T03:42:03.000Z");
   if (extra) form.append(...extra);
   const encoded = new Request("http://localhost/api/learning-images/upload", {
     method: "POST",
@@ -62,6 +65,12 @@ it("enforces identity, file limits and server-controlled upload options", async 
   assert.match(result.publicId, /^learning\/YWxpY2U\/[\da-f-]+$/);
   assert.deepEqual(Object.keys(result).sort(), ["publicId", "url"]);
   assert.equal(upload.mock.callCount(), 1);
+  assert.equal(receivedOptions[0].asset_folder, "progress-tracker/Two Sum20261003114203");
+  assert.equal(learningImageFolder("../分類/<script>", "2026-10-03T03:42:03.000Z"), "progress-tracker/___分類__script_20261003114203");
+  // 同一筆上傳／重試資料會產生同一個 folder；每張仍有獨立 publicId。
+  assert.equal((await POST(await uploadRequest())).status, 200);
+  assert.equal(receivedOptions[1].asset_folder, receivedOptions[0].asset_folder);
+  assert.notEqual(receivedOptions[1].public_id, receivedOptions[0].public_id);
   assert.equal(receivedOptions[0].overwrite, false);
   assert.equal(receivedOptions[0].resource_type, "image");
   assert.deepEqual(receivedOptions[0].allowed_formats, ["jpg", "png", "webp"]);

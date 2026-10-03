@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getVerifiedUserId } from "../../../../lib/firebase/admin.ts";
 import { uploadLearningImage } from "../../../../lib/cloudinary/server.ts";
 import {
@@ -52,7 +53,13 @@ export async function POST(request: Request) {
   // 一次只接收一張；身份、路徑、Cloudinary options 全部由 server 決定。
   const fields = [...form.keys()];
   const file = form.get("file");
-  if (fields.length !== 1 || fields[0] !== "file" || !(file instanceof File)) {
+  const metadata = z.object({
+    title: z.string().trim().min(1).max(100),
+    startedAt: z.iso.datetime(),
+  }).safeParse({ title: form.get("title"), startedAt: form.get("startedAt") });
+  if (fields.length !== 3 || new Set(fields).size !== 3
+    || fields.some((key) => !["file", "title", "startedAt"].includes(key))
+    || !(file instanceof File) || !metadata.success) {
     return error("只接受一張圖片，唔接受自訂身份或路徑。", 400);
   }
   const message = validateLearningImages([file], 0);
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
   if (!matchesType) return error("檔案內容唔符合圖片格式。", 400);
 
   try {
-    const image = await uploadLearningImage(userId, bytes);
+    const image = await uploadLearningImage(userId, bytes, metadata.data.title, metadata.data.startedAt);
     return Response.json(image, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return error("圖片上傳失敗，請再試一次。", 502);

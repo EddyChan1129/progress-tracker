@@ -22,7 +22,19 @@ export function getCloudinary() {
   return cloudinary;
 }
 
-export async function uploadLearningImage(userId: string, bytes: Buffer) {
+export function learningImageFolder(title: string, startedAt: string) {
+  // 清走斜線及 Cloudinary folder 唔接受嘅字元，標題只會成為一層資料夾。
+  const name = title.replace(/[^\p{L}\p{N} _-]/gu, "_").trim().slice(0, 80) || "learning";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(startedAt));
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const time = ["year", "month", "day", "hour", "minute", "second"].map((key) => values[key]).join("");
+  return `progress-tracker/${name}${time}`;
+}
+
+export async function uploadLearningImage(userId: string, bytes: Buffer, title: string, startedAt: string) {
   // UID 編碼成安全路徑片段，唔接受 client 自訂 publicId／其他人嘅路徑。
   const owner = Buffer.from(userId).toString("base64url");
   const publicId = `learning/${owner}/${randomUUID()}`;
@@ -31,6 +43,8 @@ export async function uploadLearningImage(userId: string, bytes: Buffer) {
     `data:application/octet-stream;base64,${bytes.toString("base64")}`,
     {
       public_id: publicId,
+      // Dynamic folder 只整理 Media Library；publicId 保留 UID 驗證同穩定 URL。
+      asset_folder: learningImageFolder(title, startedAt),
       resource_type: "image",
       type: "upload",
       allowed_formats: ["jpg", "png", "webp"],

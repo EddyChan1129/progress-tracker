@@ -505,6 +505,10 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 設定確認（2026-10-03）：本機 Admin email 已填寫，private key 可解析為有效 RSA key；未輸出秘密。格式檢查唔代表正式 Firestore 權限已驗證，等真實儲存驗收。
   - Rules 部署：使用者已執行 `npx firebase deploy --only firestore:rules --project process-tracking-87407`，提供 CLI 成功編譯及 released rules 輸出。
   - 手動驗收待完成：新增含 2 張圖片嘅記錄 → 返回列表 → refresh 後仍顯示圖片 → 編輯文字後圖片仍保留；中斷網絡後文字／選图仍保留，重試後只有一筆記錄。
+  - 手動進度（2026-10-03）：使用者確認 works，提供列表成功顯示 5 張圖片截圖；正式上傳及 server 寫入已成功。編輯保留圖片／失敗重試待確認。
+  - 圖片整理：使用者要求 `progress-tracker/{learning-title}{yyyyMMddHHmmss}/`。已確認 Cloudinary 為 dynamic folders，新上傳使用 asset_folder 分組，時間用香港時間；標題清除路徑／非法字元。同一次提交及重試沿用 startedAt，全部圖片進同一 folder；publicId 仍保留 UID 路徑作擁有權驗證。
+  - 舊圖整理：已將既有一筆記錄 5 張圖片移至 `progress-tracker/test image20261003113807`，以記錄 createdAt 命名；逐張確認 publicId／URL 保持原值。冇改 Firestore document 或其他圖片。
+  - 整理驗收：upload tests 2/2（包含香港時間、標題安全處理、同筆 folder 一致及獨立 publicId）、lint、TypeScript、production build 通過。
   - 已知階段限制：放棄失敗表單或遺失 upload 回應可能留下未關聯資產；Task 21e 處理清理，刪圖前亦需確認冇其他記錄引用同一資產。
   - 狀態：實作完成，等環境設定、手動驗收同理解確認；未標記 complete。
 
