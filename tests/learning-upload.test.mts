@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { after, it, mock } from "node:test";
+import { deleteApp, getApps } from "firebase-admin/app";
 import { v2 as cloudinary, type UploadApiOptions } from "cloudinary";
 
 import { POST } from "../src/app/api/learning-images/upload/route.ts";
-import { learningImageFolder } from "../src/lib/cloudinary/server.ts";
-import { getAdminAuth } from "../src/lib/firebase/admin.ts";
+import { learningImageFolder, imageReference } from "../src/lib/cloudinary/server.ts";
+import { getAdminAuth, getAdminDb } from "../src/lib/firebase/admin.ts";
 
 // 全部用本機 dummy config；測試唔會上傳圖片或接觸正式 credentials。
 process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "demo-progress-tracker";
 process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
 process.env.CLOUDINARY_API_KEY = "test-key";
 process.env.CLOUDINARY_API_SECRET = "test-secret";
-after(() => mock.restoreAll());
+if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("Use the Firestore emulator.");
+after(async () => { mock.restoreAll(); await Promise.all(getApps().map(deleteApp)); });
 
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=", "base64");
 
@@ -71,6 +73,14 @@ it("enforces identity, file limits and server-controlled upload options", async 
   assert.equal((await POST(await uploadRequest())).status, 200);
   assert.equal(receivedOptions[1].asset_folder, receivedOptions[0].asset_folder);
   assert.notEqual(receivedOptions[1].public_id, receivedOptions[0].public_id);
+  // 編輯用本人 entryId 找原 folder，而唔信新標題或 caller 傳來嘅路徑。
+  await getAdminDb().doc("users/alice/learningEntries/edit-test").set({ userId: "alice", images: [{ publicId: result.publicId }] });
+  await imageReference("alice", result.publicId).update({ folder: "progress-tracker/original-folder" });
+  assert.equal((await POST(await uploadRequest(png, "image/png", ["entryId", "edit-test"]))).status, 200);
+  assert.equal(receivedOptions[2].asset_folder, "progress-tracker/original-folder");
+  assert.equal((await POST(await uploadRequest(png, "image/png", ["entryId", "../bob"]))).status, 400);
+  assert.equal((await POST(await uploadRequest(png, "image/png", ["entryId", "someone-elses-entry"]))).status, 502);
+  assert.equal(upload.mock.callCount(), 3);
   assert.equal(receivedOptions[0].overwrite, false);
   assert.equal(receivedOptions[0].resource_type, "image");
   assert.deepEqual(receivedOptions[0].allowed_formats, ["jpg", "png", "webp"]);

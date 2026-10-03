@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
+import { ImageCleanupStatus } from "./image-cleanup-status";
 import { LearningCard } from "@/features/learning/components/learning-card";
 import { getLearningEntries } from "@/features/learning/services/learning.service";
 import type { LearningEntry } from "@/features/learning/types/learning.types";
 
 export function LearningList() {
+  const [cleanupVersion, setCleanupVersion] = useState(0);
   const [entries, setEntries] = useState<LearningEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +57,7 @@ export function LearningList() {
   }
 
   if (entries.length === 0) {
-    return <p className="mt-8 text-muted-foreground">暫時未有學習記錄。</p>;
+    return <div className="mt-8 space-y-4"><ImageCleanupStatus key={cleanupVersion} /><p className="text-muted-foreground">暫時未有學習記錄。</p></div>;
   }
 
   const categoryNames = new Map(
@@ -64,12 +66,14 @@ export function LearningList() {
 
   return (
     <div className="mt-8 grid gap-4">
+      <ImageCleanupStatus key={cleanupVersion} />
       {entries.map((entry) => (
         <LearningCard
           categoryName={categoryNames.get(entry.categoryId) ?? "未知分類"}
           entry={entry}
           key={entry.id}
           onDeleted={(deletedId) => {
+            setCleanupVersion((version) => version + 1);
             setEntries((current) =>
               current.filter((item) => item.id !== deletedId),
             );

@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
@@ -18,13 +19,12 @@ import {
 import {
   createLearningEntry,
   getLearningEntry,
-  updateLearningEntry,
 } from "@/features/learning/services/learning.service";
 
-import { createLearningEntryWithImages, type ImageSaveAttempt } from "@/features/learning/services/learning-image.service";
+import { saveLearningEntryWithImages, cleanupLearningImages, type ImageSaveAttempt } from "@/features/learning/services/learning-image.service";
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { LearningImages } from "@/features/learning/components/learning-images";
-import type { LearningImage } from "@/features/learning/types/learning.types";
+import type { LearningEntry, LearningImage } from "@/features/learning/types/learning.types";
 
 function getToday() {
   const today = new Date();
@@ -44,7 +44,11 @@ function toDateInputValue(date: Date) {
 }
 
 export function LearningForm({ entryId }: { entryId?: string }) {
+  const router = useRouter();
   const isEditing = Boolean(entryId);
+  const originalEntry = useRef<LearningEntry | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelPending, setCancelPending] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -89,6 +93,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         }
 
         if (entry) {
+          originalEntry.current = entry;
           setSavedImages(entry.images);
           reset({
             title: entry.title,
@@ -114,33 +119,56 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     setSuccessMessage("");
 
     try {
-      if (entryId) {
-        await updateLearningEntry(entryId, input);
-        setSuccessMessage("學習記錄已更新。");
-      } else {
-        if (imageFiles.length > 0) {
-          imageAttempt.current ??= { id: crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map() };
-          // 有儲存結果未確認時鎖住表單，只重試同一份資料，避免新增重複記錄。
-          setImageRetryPending(true);
-          await createLearningEntryWithImages(input, imageFiles, imageAttempt.current);
-          imageAttempt.current = null;
-          setImageFiles([]);
-          setImageRetryPending(false);
-        } else {
-          await createLearningEntry(input);
+      if (entryId || imageFiles.length > 0) {
+        imageAttempt.current ??= {
+          id: entryId ?? crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map(),
+          ...(entryId ? {
+            operationId: crypto.randomUUID(),
+            expectedUpdatedAt: originalEntry.current!.updatedAt.getTime(),
+            startedAt: originalEntry.current!.createdAt.toISOString(),
+          } : {}),
+        };
+        // 成功與否未確認前，只重試同一份資料同 operationId。
+        setImageRetryPending(true);
+        const result = await saveLearningEntryWithImages(input, imageFiles, imageAttempt.current, savedImages);
+        imageAttempt.current = null;
+        setImageFiles([]);
+        setImageRetryPending(false);
+        if (entryId) {
+          router.push("/learning");
+          return;
         }
-        reset({
-          title: "",
-          content: "",
-          categoryId: "",
-          learnedAt: getToday(),
-        });
+        setSuccessMessage(result.cleanupPending ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。" : "學習記錄已新增。");
+      } else {
+        await createLearningEntry(input);
         setSuccessMessage("學習記錄已新增。");
       }
+      reset({
+        title: "",
+        content: "",
+        categoryId: "",
+        learnedAt: getToday(),
+      });
     } catch (error) {
       setError("root", {
         message: error instanceof Error ? error.message : "儲存失敗，請再試一次。",
       });
+    }
+  }
+
+  async function handleCancel() {
+    if (isCancelling || isSubmitting) return;
+    setIsCancelling(true);
+    setCancelPending(true);
+    try {
+      // 舊圖只喺本機移除；取消時只清理今次新上傳嘅圖。
+      const result = await cleanupLearningImages([...imageAttempt.current?.uploads.values() ?? []]);
+      if (result.cleanupPending) throw new Error("圖片仍待清理，請按「重試取消」。");
+      router.push("/learning");
+    } catch (error) {
+      setError("root", { message: error instanceof Error ? error.message : "取消失敗，請再試。" });
+    } finally {
+      setIsCancelling(false);
     }
   }
 
@@ -177,7 +205,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
       noValidate
       onSubmit={(event) => { void handleSubmit(onSubmit)(event); }}
     >
-      <fieldset disabled={isSubmitting || imageRetryPending} className="space-y-5">
+      <fieldset disabled={isSubmitting || imageRetryPending || cancelPending} className="space-y-5">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="learning-title">
             標題
@@ -277,14 +305,9 @@ export function LearningForm({ entryId }: { entryId?: string }) {
           ) : null}
         </div>
 
-        {isEditing ? (
-          <>
-            <LearningImages images={savedImages} />
-            <p className="text-sm text-muted-foreground">已儲存圖片會保留；編輯圖片功能稍後加入。</p>
-          </>
-        ) : (
-          <LearningImageInput disabled={isSubmitting || imageRetryPending} files={imageFiles} onChange={setImageFiles} />
-        )}
+        <LearningImages images={savedImages} onRemove={(id) => setSavedImages((images) => images.filter((image) => image.publicId !== id))} disabled={isSubmitting || imageRetryPending || cancelPending} />
+        {isEditing ? <p className="text-sm text-muted-foreground">移除圖片後，按「儲存修改」先會正式刪除。取消會保留原本圖片。</p> : null}
+        <LearningImageInput disabled={isSubmitting || imageRetryPending || cancelPending} files={imageFiles} onChange={setImageFiles} existingCount={savedImages.length} />
       </fieldset>
       {imageRetryPending && !isSubmitting ? (
         <p className="text-sm text-muted-foreground" role="status">
@@ -292,7 +315,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         </p>
       ) : null}
 
-      <Button disabled={isSubmitting} type="submit">
+      <Button disabled={isSubmitting || cancelPending} type="submit">
         {isSubmitting
           ? isEditing
             ? "儲存中…"
@@ -302,6 +325,10 @@ export function LearningForm({ entryId }: { entryId?: string }) {
           : isEditing
             ? "儲存修改"
             : "新增學習記錄"}
+      </Button>
+
+      <Button className="ml-2" variant="outline" type="button" disabled={isSubmitting || isCancelling} onClick={handleCancel}>
+        {isCancelling ? "清理中…" : cancelPending ? "重試取消" : "取消"}
       </Button>
 
       <div aria-live="polite">

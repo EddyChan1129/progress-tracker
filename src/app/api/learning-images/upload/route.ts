@@ -56,9 +56,10 @@ export async function POST(request: Request) {
   const metadata = z.object({
     title: z.string().trim().min(1).max(100),
     startedAt: z.iso.datetime(),
-  }).safeParse({ title: form.get("title"), startedAt: form.get("startedAt") });
-  if (fields.length !== 3 || new Set(fields).size !== 3
-    || fields.some((key) => !["file", "title", "startedAt"].includes(key))
+    entryId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/).optional(),
+  }).safeParse({ title: form.get("title"), startedAt: form.get("startedAt"), entryId: form.get("entryId") ?? undefined });
+  if ((fields.length !== 3 && fields.length !== 4) || new Set(fields).size !== fields.length
+    || fields.some((key) => !["file", "title", "startedAt", "entryId"].includes(key))
     || !(file instanceof File) || !metadata.success) {
     return error("只接受一張圖片，唔接受自訂身份或路徑。", 400);
   }
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   if (!matchesType) return error("檔案內容唔符合圖片格式。", 400);
 
   try {
-    const image = await uploadLearningImage(userId, bytes, metadata.data.title, metadata.data.startedAt);
+    const image = await uploadLearningImage(userId, bytes, metadata.data.title, metadata.data.startedAt, metadata.data.entryId);
     return Response.json(image, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return error("圖片上傳失敗，請再試一次。", 502);

@@ -8,17 +8,20 @@ export interface ImageSaveAttempt {
   userId: string;
   uploads: Map<File, string>;
   startedAt?: string;
+  operationId?: string;
+  expectedUpdatedAt?: number;
 }
 
-export async function createLearningEntryWithImages(
+export async function saveLearningEntryWithImages(
   input: LearningEntryInput,
   files: File[],
   attempt: ImageSaveAttempt,
+  keptImages: { publicId: string }[] = [],
 ) {
   const user = auth.currentUser;
   if (!user || user.uid !== attempt.userId) throw new Error("登入帳戶已改變，請重新開啟表單。");
   const parsed = learningEntrySchema.parse(input);
-  const error = validateLearningImages(files, 0);
+  const error = validateLearningImages(files, keptImages.length);
   if (error) throw new Error(error);
   const token = await user.getIdToken();
   attempt.startedAt ??= new Date().toISOString();
@@ -29,6 +32,7 @@ export async function createLearningEntryWithImages(
     form.append("file", file);
     form.append("title", parsed.title);
     form.append("startedAt", attempt.startedAt);
+    if (attempt.operationId) form.append("entryId", attempt.id);
     const response = await fetch("/api/learning-images/upload", {
       method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
     });
@@ -38,15 +42,34 @@ export async function createLearningEntryWithImages(
   }
 
   const response = await fetch("/api/learning-entries", {
-    method: "POST",
+    method: attempt.operationId ? "PATCH" : "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       entryId: attempt.id, input,
       timezoneOffset: parsed.learnedAt.getTimezoneOffset(),
-      publicIds: files.map((file) => attempt.uploads.get(file)),
+      publicIds: [...keptImages.map((image) => image.publicId), ...files.map((file) => attempt.uploads.get(file))],
+      ...(attempt.operationId ? { operationId: attempt.operationId, expectedUpdatedAt: attempt.expectedUpdatedAt } : {}),
     }),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error ?? "儲存失敗，請再試。");
-  return result.id as string;
+  return result as { id: string; cleanupPending: boolean };
+}
+
+// Token 由 Firebase 提供；server 會再驗證，唔接受 caller 自己傳入 UID。
+export async function learningMediaRequest(path: string, method: string, body: unknown) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("請先登入。");
+  const response = await fetch(path, {
+    method,
+    headers: { Authorization: `Bearer ${await user.getIdToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "操作失敗，請再試。");
+  return result as { cleanupPending: boolean };
+}
+
+export function cleanupLearningImages(publicIds: string[] = []) {
+  return learningMediaRequest("/api/learning-images/cleanup", "POST", { publicIds });
 }

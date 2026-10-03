@@ -1,7 +1,7 @@
+import { learningMediaRequest } from "./learning-image.service";
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   type DocumentData,
   getDoc,
@@ -21,10 +21,8 @@ import {
 import type { LearningEntry } from "@/features/learning/types/learning.types";
 import { db } from "@/lib/firebase/client";
 
-export async function deleteLearningEntry(entryId: string) {
-  const userId = getCurrentUserId();
-
-  await deleteDoc(doc(db, "users", userId, "learningEntries", entryId));
+export function deleteLearningEntry(entryId: string) {
+  return learningMediaRequest("/api/learning-entries", "DELETE", { entryId });
 }
 
 function toLearningEntry(id: string, data: DocumentData): LearningEntry {

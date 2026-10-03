@@ -41,12 +41,12 @@ it("saves verified images once, rejects forged assets and preserves existing ent
   assert.equal((await send({ ...body, publicIds: [body.publicIds[0], body.publicIds[0]] })).status, 400);
   assert.equal((await send({ ...body, userId: "bob" })).status, 400);
   assert.equal((await send({ ...body, images: [{ url: "https://evil.example" }] })).status, 400);
-  assert.equal((await send({ ...body, publicIds: [`learning/Ym9i/${randomUUID()}`] })).status, 502);
+  assert.equal((await send({ ...body, publicIds: [`learning/Ym9i/${randomUUID()}`] })).status, 403);
   assert.equal(resource.mock.callCount(), 0);
   assert.equal((await send({ ...body, input: { ...body.input, categoryId: "missing" } })).status, 400);
   const response = await send(body);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { id: body.entryId });
+  assert.deepEqual(await response.json(), { id: body.entryId, cleanupPending: false });
   const ref = db.doc(`users/alice/learningEntries/${body.entryId}`);
   const first = (await ref.get()).data()!;
   assert.equal(first.images.length, 2);

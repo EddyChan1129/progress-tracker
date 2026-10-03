@@ -69,7 +69,7 @@ export function LearningCard({
       </Button>
       <Button
         className="ml-2"
-        disabled={isDeleting || entry.images.length > 0}
+        disabled={isDeleting}
         onClick={handleDelete}
         size="sm"
         type="button"
@@ -77,7 +77,6 @@ export function LearningCard({
       >
         {isDeleting ? "刪除中…" : "刪除"}
       </Button>
-      {entry.images.length > 0 ? <p className="mt-2 text-sm text-muted-foreground">有圖片嘅記錄暫未開放刪除。</p> : null}
       {deleteError ? (
         <p className="mt-3 text-sm text-destructive" role="alert">
           {deleteError}

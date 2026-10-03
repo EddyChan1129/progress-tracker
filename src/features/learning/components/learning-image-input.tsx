@@ -12,10 +12,12 @@ export function LearningImageInput({
   files,
   onChange,
   disabled,
+  existingCount = 0,
 }: {
   files: File[];
   onChange: (files: File[]) => void;
   disabled: boolean;
+  existingCount?: number;
 }) {
   const [error, setError] = useState("");
 
@@ -25,7 +27,7 @@ export function LearningImageInput({
     event.currentTarget.value = "";
     if (selected.length === 0) return;
 
-    const message = validateLearningImages(selected, files.length);
+    const message = validateLearningImages(selected, files.length + existingCount);
     setError(message ?? "");
     if (message) return;
 
@@ -50,8 +52,8 @@ export function LearningImageInput({
         type="file"
       />
       <p className="text-sm text-muted-foreground" id="learning-images-help">
-        JPEG、PNG、WebP；每張最多 4 MiB，每筆最多 5 張。已選 {files.length}/5 張。
-        按新增學習記錄後先會上傳；儲存前重新整理會清除選擇。
+        JPEG、PNG、WebP；每張最多 4 MiB，每筆最多 5 張。已選 {files.length + existingCount}/5 張。
+        按儲存後先會上傳；儲存前重新整理會清除選擇。
       </p>
       <p className="text-sm text-destructive" id="learning-images-error" role="alert">
         {error}

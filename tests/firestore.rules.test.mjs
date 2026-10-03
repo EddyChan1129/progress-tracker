@@ -113,6 +113,17 @@ describe("deny-by-default Firestore rules", () => {
   });
 });
 
+describe("server-only image bookkeeping", () => {
+  it("prevents browsers from forging asset states or operation receipts", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const collectionName of ["imageAssets", "mediaOperations"]) {
+      const ref = doc(db, "users", "alice", collectionName, "forged");
+      await assertFails(setDoc(ref, { state: "active", hash: "fake" }));
+      await assertFails(getDoc(ref));
+    }
+  });
+});
+
 describe("learning entry Firestore rules", () => {
   it("allows a user to create a valid entry with their own category", async () => {
     await seedCategory("alice", "leetcode-entry");

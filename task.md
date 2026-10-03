@@ -492,7 +492,7 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者理解 userId 本身唔能證明身份、Postman 可繞過前端圖片檢查，以及 Cloudinary secret 必須留喺 server。補充：token 嘅可信性來自 server 驗證 Firebase 簽名、有效期及 project，唔係因為每次 token 都唔同。
   - 完成日期：2026-10-02。
 
-- [ ] Task 21d — 上傳圖片同儲存關聯。
+- [x] Task 21d — complete：上傳圖片同儲存關聯。
   - 做：前端將圖片同 Firebase ID token 送到 server 上傳 API；server 核實資產及所有權，再將 publicId 同所需圖片資料連到記錄，強制每筆最多 5 張；同步更新 schema／Rules，避免繞過 API 偽造受保護圖片欄位。
   - 檔案：learning 圖片 service、必要 Route Handler、LearningForm、learning schema／types、Rules。
   - 驗收：多圖可儲存並於 refresh 後顯示；圖片內容唔寫入 Firestore；上傳／關聯失敗保留文字並有明確重試方式，唔顯示假成功。
@@ -510,12 +510,22 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 舊圖整理：已將既有一筆記錄 5 張圖片移至 `progress-tracker/test image20261003113807`，以記錄 createdAt 命名；逐張確認 publicId／URL 保持原值。冇改 Firestore document 或其他圖片。
   - 整理驗收：upload tests 2/2（包含香港時間、標題安全處理、同筆 folder 一致及獨立 publicId）、lint、TypeScript、production build 通過。
   - 已知階段限制：放棄失敗表單或遺失 upload 回應可能留下未關聯資產；Task 21e 處理清理，刪圖前亦需確認冇其他記錄引用同一資產。
-  - 狀態：實作完成，等環境設定、手動驗收同理解確認；未標記 complete。
+  - 理解確認：使用者理解 Cloudinary 保存圖片，Firestore 保存 URL／publicId；圖片快取同 Firestore 圖片關聯係兩回事。亦理解 uploads Map 以 File 對應 publicId，成功後 set() 記住，重試用 has(file)／continue 跳過成功圖片，只重試失敗項目。
+  - 完成日期：2026-10-03。正式多圖上傳／顯示已手動確認；編輯保留圖片及失敗重試已由自動測試覆蓋相關 server 行為，但完整 browser 手動驗收尚未確認。
 
-- [ ] Task 21e — 編輯／刪除圖片同失敗清理。
+- [x] Task 21e — complete：編輯／刪除圖片同失敗清理。
   - 做：記錄顯示圖片，編輯可新增／移除；刪記錄時處理資產。Server 驗證所有權；定義可重試清理順序，避免先刪仍被有效記錄引用嘅圖片。
   - 檔案：learning 圖片顯示／編輯元件、圖片 service／API、記錄刪除流程。
   - 驗收：取消編輯、部分上傳失敗、Firestore 寫入失敗、Cloudinary 刪除失敗、重試均有處理；無法刪他人圖片；圖片可見性符合 Task 21a 決定。
+  - 編輯：舊圖移除只改本機 state，儲存先 PATCH 到 server；舊圖加新圖合共最多 5 張。新增圖片沿用既有圖片 folder（由 server 找本人記錄），改標題唔會散落到新 folder。取消唔改原記錄，只清理今次已上傳但未關聯嘅圖片。
+  - 清理順序：transaction 先更新／刪除記錄，同時寫入本人 `imageAssets` 清理待辦；server 確認冇其他有效記錄引用先刪 Cloudinary，並要求 CDN invalidate。Browser 舊快取仍可能暫時存在。
+  - 重試：成功上傳由 File → publicId Map 記住；未確認結果時鎖住輸入，重試相同 operationId。編輯附帶原 updatedAt，拒絕覆蓋其他已更新版本；receipt 防止重複儲存。
+  - 清圖失敗：待辦保存 Firestore，列表「重試圖片清理」可再處理，重新整理唔會遺失。`imageAssets`／`mediaOperations` 只允許 server 寫入，Browser Rules 仍禁止直接改 images／刪含圖記錄。
+  - 遺失上傳回應／直接關頁：上傳前已記錄 publicId，未關聯圖片 24 小時後過期；下次開列表／呼叫清理先處理，每次最多 20 張。冇背景 scheduler，未再次使用 app 前可能仍保留孤立圖；舊 Task 21d 未登记嘅孤立上傳唔會自動發現。
+  - 驗證：lint、TypeScript、production build 通過；emulator + mock Cloudinary 測試涵蓋儲存／刪除失敗、取消、重試、過期上傳、共用圖片引用同帳戶隔離。`npm run test:image-lifecycle` 可重跑圖片流程；測試唔碰正式圖片。
+  - 手動驗收：使用者確認新增／移除圖片後保存、移除後取消保留原圖、刪除含圖記錄後 Firestore 同 Cloudinary 清理，三項全部 pass。
+  - 理解確認：使用者理解儲存先正式移除圖片、先改 Firestore 再清 Cloudinary；清理失敗時 cleanupAfter 保留，下次列表 useEffect 呼叫清理重試。補充確認：只有刪成功先清空 cleanupAfter。
+  - 完成日期：2026-10-03。
 
 ## Phase 6 — Goal CRUD
 
@@ -612,4 +622,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 21d 已實作，未標記 complete。** Firebase Admin 設定格式已確認，使用者已成功部署 Rules；下一步手動驗收同確認理解；未開始 Task 21e。
+**Task 21e 已完成。** 下一步 Task 22；等使用者明確要求先開始。
