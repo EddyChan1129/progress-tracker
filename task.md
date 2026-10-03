@@ -608,18 +608,24 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① getGoals 同 getGoal(goalId) 有咩分別？② 未填 targetDate 嘅目標會唔會出現喺列表？③ 點解 getGoal 用登入 UID 組合路徑，而唔接受頁面傳入 userId？
   - 理解確認：使用者分清 getGoals 讀全部大目標、getGoal(goalId) 讀指定大目標，細目標尚未實作；確認未填 targetDate 亦會出現。使用者理解登入 UID 用於識別本人；已補充 UID 字串本身唔證明身份，Firebase Auth 提供登入身份、Rules 核實權限。
 
-- [ ] Task 25a — 子目標型別同 schema。
+- [x] Task 25a — 子目標型別同 schema。
   - 做：一層 SubGoal；預設 checklist，count 類型先要求正數目標／單位。例子：搵老師、單字 300 個。
   - 檔案：goal feature 子目標 types／schema 同最小測試。
   - 驗收：checklist 唔強迫填數量；count 必須有合法數量／單位，兩種欄位唔混用。
-  - 已實作（2026-10-03，待理解確認）：sub-goal.types.ts 用 kind 區分 checklist／count；sub-goal.schema.ts 驗證建立輸入，strict 拒絕混用欄位同自行傳入身份、進度、完成狀態或時間。kind 必須明確提供；之後表單預設 checklist。count 目標必須係有限正數，接受小數，單位必填。
+  - 已實作（2026-10-03）：sub-goal.types.ts 用 kind 區分 checklist／count；sub-goal.schema.ts 驗證建立輸入，strict 拒絕混用欄位同自行傳入身份、進度、完成狀態或時間。kind 必須明確提供；之後表單預設 checklist。count 目標必須係有限正數，接受小數，單位必填。
   - 驗證：新增 6 個子目標 schema 測試；npm run test:schema 19/19 通過，lint、typecheck 通過。今步未修改 service、Rules 或表單。
   - 理解問題：① checklist 可唔可以傳 unit？② 點解建立輸入唔接受 currentValue／isCompleted？
+  - 理解確認：已解釋 checklist 有 kind、title 即可通過，多出 unit 被 strict 拒絕；使用者答對新增學 100 個單字時 targetValue = 100、currentValue = 0。
 
-- [ ] Task 25b — 子目標 service 同 Rules。
+- [x] Task 25b — 子目標 service 同 Rules。
   - 做：本人既有大目標下面新增／讀取子目標；檢查 parent 存在同擁有者，count 初始進度 0、checklist 初始未完成。
   - 檔案：子目標 service、Rules 同測試。
   - 驗收：他人／不存在 parent、偽造初始進度或已完成狀態被拒。
+  - 已實作（2026-10-03）：sub-goal.service.ts 提供 createSubGoal(goalId, input)、getSubGoals(goalId)；從登入狀態取 UID，檢查 goalId 同本人 parent 存在後存取 users/{uid}/goals/{goalId}/subGoals。checklist 初始 false、count 初始 0，時間用 serverTimestamp；列表按建立時間由舊到新。sub-goal-data.ts 驗證讀取資料並轉 Timestamp → Date。
+  - Rules：本人且 parent 存在／擁有者正確先准 read/create；各 kind 限制必需／允許欄位、文字、有限正數目標、初始進度同 server 時間。update/delete、進度歷史、再下一層細目標仍拒絕。
+  - 自動驗收：test:rules 33/33（新增子目標 6 個測試）、test:goals 5/5（新增子目標資料轉換 2 個測試）、test:schema 19/19、lint、typecheck、diff whitespace 檢查通過。測試只用 demo emulator；未部署正式 Rules，未加表單。
+  - 理解問題：① 點解 UID 唔由表單傳入？② parent 不存在可唔可以新增？③ service 已設定 0，點解 Rules 仲檢查 0？④ 今步可唔可以修改／刪除細目標？
+  - 理解確認：使用者答對登入身份來源、不存在 parent 拒絕新增、繞過 service 偽造進度仍需 Rules 檢查，以及目前只開放 read/create。已補充第 3 題係直接向 Firestore 發 request，唔必須經我哋嘅 backend。
 
 - [ ] Task 25c — 子目標表單同列表。
   - 做：大目標詳情頁新增子目標，按 kind 顯示必要欄位；列出 checklist／計量進度。
@@ -699,4 +705,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 25a 已實作及通過檢查，待使用者理解確認。** 下一步 Task 25b 子目標 service 同 Rules；未開始。
+**Task 25b 已完成。** 下一步 Task 25c 子目標表單同列表；等使用者明確要求先開始。

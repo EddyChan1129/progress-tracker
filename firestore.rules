@@ -105,6 +105,40 @@ service cloud.firestore {
         && data.updatedAt is timestamp && data.updatedAt == request.time;
     }
 
+    // 子目標唔可以懸空；parent 路徑同欄位擁有者都要正確。
+    function hasOwnGoal(userId, goalId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/goals/$(goalId))
+        && get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId;
+    }
+
+    function isValidNewSubGoal(userId, goalId) {
+      let data = request.resource.data;
+      let common = ['userId', 'goalId', 'title', 'kind', 'createdAt', 'updatedAt'];
+      return data.keys().hasAll(common)
+        && data.userId == userId && data.goalId == goalId
+        && data.title is string && data.title == data.title.trim()
+        && data.title.size() > 0 && data.title.size() <= 100
+        && data.get('description', '') is string
+        && data.get('description', '') == data.get('description', '').trim()
+        && data.get('description', '').size() <= 2000
+        && data.createdAt is timestamp && data.createdAt == request.time
+        && data.updatedAt is timestamp && data.updatedAt == request.time
+        // 兩個分支各自限制必需／允許欄位，唔可以混用。
+        && ((data.kind == 'checklist'
+            && data.keys().hasAll(['isCompleted'])
+            && data.keys().hasOnly(common.concat(['description', 'isCompleted']))
+            && data.isCompleted is bool && !data.isCompleted)
+          || (data.kind == 'count'
+            && data.keys().hasAll(['targetValue', 'currentValue', 'unit'])
+            && data.keys().hasOnly(common.concat(['description', 'targetValue', 'currentValue', 'unit']))
+            && data.targetValue is number && data.targetValue > 0
+            // 有限數相減係 0；Infinity 相減係 NaN，唔會通過。
+            && data.targetValue - data.targetValue == 0
+            && data.currentValue is number && data.currentValue == 0
+            && data.unit is string && data.unit == data.unit.trim()
+            && data.unit.size() > 0 && data.unit.size() <= 20));
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
@@ -141,7 +175,13 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidNewGoal(userId);
       // 舊目標仍可由本人讀取；新資料格式只喺 create 時檢查，唔會刪除舊資料。
-      // 今步未開放 update／delete／子目標／進度歷史；繼續由下方預設拒絕。
+      // 今步未開放大目標 update／delete／進度歷史。
+      match /subGoals/{subGoalId} {
+        allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
+        allow create: if isOwner(userId) && hasOwnGoal(userId, goalId)
+          && isValidNewSubGoal(userId, goalId);
+        // 修改、刪除同進度歷史留到之後嘅 task，暫時拒絕。
+      }
     }
 
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。

@@ -458,14 +458,14 @@ describe("goal Firestore rules", () => {
     }
   });
 
-  it("keeps updates, deletion, subgoals and progress history closed for now", async () => {
+  it("keeps parent updates, deletion and progress history closed for now", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const goal = doc(db, "users/alice/goals/locked-goal");
     await assertSucceeds(setDoc(goal, validGoal()));
     await assertFails(updateDoc(goal, { title: "Changed", updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(goal, { currentValue: 5, updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(goal));
-    for (const path of ["updates/forged-progress", "subGoals/child", "subGoals/child/updates/progress"]) {
+    for (const path of ["updates/forged-progress", "subGoals/child/updates/progress"]) {
       const child = doc(db, "users/alice/goals/locked-goal", path);
       await assertFails(setDoc(child, { userId: "alice", progressDelta: 5 }));
       await assertFails(getDoc(child));
@@ -487,5 +487,110 @@ describe("goal Firestore rules", () => {
     assert.equal(snapshot.data().unit, "題");
     await assertSucceeds(getDocs(collection(db, "users/alice/goals")));
     await assertFails(getDoc(doc(testEnv.authenticatedContext("bob").firestore(), "users/alice/goals/legacy-goal")));
+  });
+});
+
+function validSubGoal(overrides = {}) {
+  return {
+    userId: "alice", goalId: "sub-parent", kind: "checklist", title: "搵老師",
+    isCompleted: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+function validCountSubGoal(overrides = {}) {
+  const data = validSubGoal({ kind: "count", title: "學單字", targetValue: 300, currentValue: 0, unit: "個", ...overrides });
+  delete data.isCompleted;
+  return data;
+}
+
+describe("subgoal Firestore rules", () => {
+  before(async () => {
+    await seedCategory("alice", "goal-category");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/alice/goals/sub-parent"), validGoal());
+      await setDoc(doc(context.firestore(), "users/alice/goals/wrong-owner-parent"), { userId: "bob" });
+      await setDoc(doc(context.firestore(), "users/bob/goals/bob-parent"), { userId: "bob" });
+    });
+  });
+
+  it("allows the owner to create both kinds and read their list", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/checklist");
+    await assertSucceeds(setDoc(ref, validSubGoal()));
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/sub-parent/subGoals/count"), validCountSubGoal()));
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/sub-parent/subGoals/decimal"), validCountSubGoal({ targetValue: 2.5, unit: "章", description: "閱讀" })));
+    assert.equal((await assertSucceeds(getDoc(ref))).data().isCompleted, false);
+    const list = await assertSucceeds(getDocs(collection(db, "users/alice/goals/sub-parent/subGoals")));
+    assert.equal(list.size, 3);
+  });
+
+  it("rejects guests, other users and forged ownership or parent IDs", async () => {
+    for (const db of [testEnv.unauthenticatedContext().firestore(), testEnv.authenticatedContext("bob").firestore()]) {
+      const ref = doc(db, "users/alice/goals/sub-parent/subGoals/checklist");
+      await assertFails(getDoc(ref));
+      await assertFails(getDocs(collection(db, "users/alice/goals/sub-parent/subGoals")));
+      await assertFails(setDoc(ref, validSubGoal()));
+    }
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const changes of [{ userId: "bob" }, { goalId: "bob-parent" }]) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/sub-parent/subGoals/forged"), validSubGoal(changes)));
+    }
+  });
+
+  it("rejects missing, foreign or incorrectly owned parents for reads and creates", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const goalId of ["missing-parent", "bob-parent", "wrong-owner-parent"]) {
+      const ref = doc(db, "users/alice/goals", goalId, "subGoals/child");
+      await assertFails(setDoc(ref, validSubGoal({ goalId })));
+      await assertFails(getDoc(ref));
+      await assertFails(getDocs(collection(db, "users/alice/goals", goalId, "subGoals")));
+    }
+  });
+
+  it("rejects forged initial progress, mixed fields and unknown kinds", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/bad-progress");
+    for (const data of [
+      validSubGoal({ isCompleted: true }), validSubGoal({ isCompleted: 0 }),
+      validSubGoal({ unit: "次" }), validSubGoal({ targetValue: 1 }), validSubGoal({ currentValue: 0 }),
+      validSubGoal({ kind: "unknown" }), validCountSubGoal({ currentValue: 1 }),
+      validCountSubGoal({ currentValue: "0" }), { ...validCountSubGoal(), isCompleted: false },
+    ]) await assertFails(setDoc(ref, data));
+  });
+
+  it("rejects invalid fields, missing fields and forged timestamps", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/bad-fields");
+    for (const changes of [
+      { title: " " }, { title: " untrimmed " }, { title: "a".repeat(101) }, { title: 1 },
+      { description: 1 }, { description: "a".repeat(2001) }, { color: "red" },
+      { createdAt: Timestamp.fromMillis(0) }, { updatedAt: Timestamp.fromMillis(0) },
+    ]) await assertFails(setDoc(ref, validSubGoal(changes)));
+    for (const changes of [
+      { targetValue: 0 }, { targetValue: -1 }, { targetValue: "300" },
+      { targetValue: Infinity }, { targetValue: NaN },
+      { unit: "" }, { unit: " 個 " }, { unit: "a".repeat(21) }, { unit: 1 },
+    ]) await assertFails(setDoc(ref, validCountSubGoal(changes)));
+    for (const data of [validSubGoal(), validCountSubGoal()]) {
+      for (const field of Object.keys(data)) {
+        const missing = { ...data };
+        delete missing[field];
+        await assertFails(setDoc(ref, missing));
+      }
+    }
+  });
+
+  it("keeps child edits, deletion, history and another level of children closed", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/goals/sub-parent/subGoals/locked");
+    await assertSucceeds(setDoc(ref, validSubGoal()));
+    await assertFails(updateDoc(ref, { isCompleted: true, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(ref));
+    for (const path of ["updates/progress", "subGoals/grandchild"]) {
+      const child = doc(ref, path);
+      await assertFails(setDoc(child, validSubGoal()));
+      await assertFails(getDoc(child));
+    }
   });
 });
