@@ -612,6 +612,9 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 做：一層 SubGoal；預設 checklist，count 類型先要求正數目標／單位。例子：搵老師、單字 300 個。
   - 檔案：goal feature 子目標 types／schema 同最小測試。
   - 驗收：checklist 唔強迫填數量；count 必須有合法數量／單位，兩種欄位唔混用。
+  - 已實作（2026-10-03，待理解確認）：sub-goal.types.ts 用 kind 區分 checklist／count；sub-goal.schema.ts 驗證建立輸入，strict 拒絕混用欄位同自行傳入身份、進度、完成狀態或時間。kind 必須明確提供；之後表單預設 checklist。count 目標必須係有限正數，接受小數，單位必填。
+  - 驗證：新增 6 個子目標 schema 測試；npm run test:schema 19/19 通過，lint、typecheck 通過。今步未修改 service、Rules 或表單。
+  - 理解問題：① checklist 可唔可以傳 unit？② 點解建立輸入唔接受 currentValue／isCompleted？
 
 - [ ] Task 25b — 子目標 service 同 Rules。
   - 做：本人既有大目標下面新增／讀取子目標；檢查 parent 存在同擁有者，count 初始進度 0、checklist 初始未完成。
@@ -696,4 +699,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 25 已完成。** 下一步 Task 25a 子目標型別同 schema；等使用者明確要求先開始。
+**Task 25a 已實作及通過檢查，待使用者理解確認。** 下一步 Task 25b 子目標 service 同 Rules；未開始。
