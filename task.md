@@ -627,10 +627,15 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 點解 UID 唔由表單傳入？② parent 不存在可唔可以新增？③ service 已設定 0，點解 Rules 仲檢查 0？④ 今步可唔可以修改／刪除細目標？
   - 理解確認：使用者答對登入身份來源、不存在 parent 拒絕新增、繞過 service 偽造進度仍需 Rules 檢查，以及目前只開放 read/create。已補充第 3 題係直接向 Firestore 發 request，唔必須經我哋嘅 backend。
 
-- [ ] Task 25c — 子目標表單同列表。
-  - 做：大目標詳情頁新增子目標，按 kind 顯示必要欄位；列出 checklist／計量進度。
-  - 檔案：子目標 form／list、goal detail page。
-  - 驗收：英文目標下面建立「搵老師」同「單字 300 個」，refresh 後仍存在。
+- [ ] Task 25c — 同頁建立大目標同可選細目標，再顯示列表。
+  - 做：新增目標頁直接填大目標及零個或多個細目標，最後按一次儲存；按 kind 顯示必要欄位，詳情頁列出 checklist／計量進度。
+  - 檔案：goal-form.tsx、sub-goal-fields.tsx、sub-goal-list.tsx、goal-detail.tsx、goals/new/page.tsx、goal.schema.ts、goal.service.ts、firestore.rules 同測試。
+  - 驗收：只建立大目標亦可；同一表單建立英文大目標連「搵老師」同「單字 300 個」，成功後直接去詳情頁顯示兩筆，refresh 後仍存在。任何一筆失敗都唔會部分儲存，亦保留輸入。
+  - 已實作（2026-10-03，待手動驗收同理解確認）：GoalForm 用 useFieldArray 增減細目標；SubGoalFields 共用主表單狀態，count 先顯示數量／單位，valueAsNumber 將數量轉 number，切回 checklist 用 unregister 移除 count 欄位。唔用 field array 全局 shouldUnregister，避免移除／重排時丟失其他行。成功先 reset 及導向新詳情頁；失敗保留輸入，送出時 disable fieldset。
+  - Service／Rules：goalCreationSchema 驗證 parent 同 optional subGoals；createGoal 用 writeBatch 一次寫 parent／children，初始狀態及時間由 service 補上，subGoals 唔塞入 parent document。Rules create 用 getAfter 檢查同批完成後嘅本人 parent；read 保留既有 parent 檢查。未部署正式 Rules。
+  - 列表：詳情頁只顯示本人 parent 同 SubGoalList，移除獨立新增細目標表單；loading／error／empty、離頁 cleanup；checklist 顯示完成狀態，count 顯示 currentValue / targetValue 同單位。未加入修改、刪除或進度操作。
+  - 自動驗收：test:rules 35/35（batch 成功同非法 child 令整批回滾）、test:schema 22/22（optional／nested 驗證）、test:goals 5/5、lint、typecheck、Webpack production build、diff whitespace 檢查通過。Chrome 確認同頁動態加入兩種細目標、移除第一行後其他資料保留、切回 checklist 移除數量／單位、錯誤提交保留輸入。測試只用 demo emulator，未寫入正式 Firestore；正式新增後顯示及 refresh 待使用者確認。
+  - 理解問題：① 點解用 writeBatch 一次儲存，唔分開逐筆新增？② 冇細目標可唔可以儲存？③ 點解 count 要 valueAsNumber？
 
 - [ ] Task 26 — 編輯大目標／子目標。
   - 做：更新標題、描述等合法欄位，保護 owner／createdAt／parent；有進度後唔改計量定義。實作前如太大再拆步。
@@ -705,4 +710,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 25b 已完成。** 下一步 Task 25c 子目標表單同列表；等使用者明確要求先開始。
+**Task 25c 已實作及通過自動檢查，待手動驗收同理解確認。** 下一步 Task 26；未開始。

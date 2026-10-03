@@ -7,6 +7,7 @@ import { getCategories } from "@/features/categories/services/category.service";
 import { GoalCard } from "@/features/goals/components/goal-card";
 import { getGoal } from "@/features/goals/services/goal.service";
 import type { Goal } from "@/features/goals/types/goal.types";
+import { SubGoalList } from "./sub-goal-list";
 
 export function GoalDetail({ goalId }: { goalId: string }) {
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -31,7 +32,15 @@ export function GoalDetail({ goalId }: { goalId: string }) {
     <div className="mt-8 space-y-5">
       {isLoading ? <p className="text-sm text-muted-foreground" role="status">載入目標中…</p>
         : errorMessage ? <p className="text-sm text-destructive" role="alert">{errorMessage}</p>
-        : goal ? <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
+        : goal ? (
+          <>
+            <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
+            <section className="space-y-5" aria-labelledby="sub-goals-heading">
+              <h2 id="sub-goals-heading" className="text-xl font-semibold">細目標</h2>
+              <SubGoalList key={goal.id} goalId={goal.id} />
+            </section>
+          </>
+        )
         : <p role="status">搵唔到呢個目標，或者佢唔屬於你。</p>}
       <Button asChild variant="outline"><Link href="/goals">返回目標列表</Link></Button>
     </div>

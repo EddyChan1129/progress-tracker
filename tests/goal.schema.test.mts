@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { goalSchema } from "../src/features/goals/schemas/goal.schema.ts";
+import { goalSchema, goalCreationSchema } from "../src/features/goals/schemas/goal.schema.ts";
 
 const validGoal = {
   title: " 成為冷氣師傅 ",
@@ -70,6 +70,37 @@ describe("goalSchema", () => {
     // 大目標唔再接收計量欄位；strict 亦拒絕偽造身份／狀態／時間。
     for (const field of ["targetValue", "unit", "id", "userId", "currentValue", "status", "createdAt", "updatedAt"]) {
       assert.equal(goalSchema.safeParse({ ...validGoal, [field]: "forged" }).success, false);
+    }
+  });
+});
+
+describe("goalCreationSchema", () => {
+  it("accepts a parent alone or together with different kinds of optional subgoals", () => {
+    assert.equal(goalCreationSchema.safeParse(validGoal).success, true);
+    assert.equal(goalCreationSchema.safeParse({ ...validGoal, subGoals: [] }).success, true);
+    const result = goalCreationSchema.parse({ ...validGoal, subGoals: [
+      { kind: "checklist", title: " 搵老師 " },
+      { kind: "count", title: "學單字", targetValue: 300, unit: " 個 " },
+    ] });
+    assert.equal(result.subGoals?.length, 2);
+    assert.equal(result.subGoals?.[0].title, "搵老師");
+  });
+
+  it("reports invalid nested inputs on the matching row and field", () => {
+    const result = goalCreationSchema.safeParse({ ...validGoal, subGoals: [
+      { kind: "checklist", title: "搵老師" },
+      { kind: "count", title: "學單字", targetValue: 0, unit: "個" },
+    ] });
+    assert.equal(result.success, false);
+    if (!result.success) assert.deepEqual(result.error.issues[0].path, ["subGoals", 1, "targetValue"]);
+    assert.equal(goalCreationSchema.safeParse({ ...validGoal, subGoals: [{ kind: "checklist", title: "" }] }).success, false);
+    assert.equal(goalCreationSchema.safeParse({ ...validGoal, subGoals: null }).success, false);
+  });
+
+  it("retains parent date validation and rejects forged nested progress or mixed fields", () => {
+    assert.equal(goalCreationSchema.safeParse({ ...validGoal, startDate: "2026-10-03", targetDate: "2026-10-02", subGoals: [] }).success, false);
+    for (const changes of [{ unit: "次" }, { userId: "bob" }, { isCompleted: true }]) {
+      assert.equal(goalCreationSchema.safeParse({ ...validGoal, subGoals: [{ kind: "checklist", title: "搵老師", ...changes }] }).success, false);
     }
   });
 });

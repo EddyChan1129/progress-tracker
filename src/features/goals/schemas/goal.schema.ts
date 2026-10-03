@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { subGoalSchema } from "./sub-goal.schema.ts";
 
 function dateInputSchema(message: string) {
   return z.iso.date(message).transform((value) => {
@@ -29,3 +30,9 @@ export const goalSchema = z.object({
 
 // Input 係表單輸入：日期係 string；parse 後嘅日期先會變成 Date。
 export type GoalInput = z.input<typeof goalSchema>;
+
+// 同一表單可以只建立大目標，亦可以連同細目標一次過建立。
+export const goalCreationSchema = goalSchema.safeExtend({
+  subGoals: z.array(subGoalSchema).optional(),
+});
+export type GoalCreationInput = z.input<typeof goalCreationSchema>;

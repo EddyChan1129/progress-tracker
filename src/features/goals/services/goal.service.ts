@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -8,10 +7,11 @@ import {
   query,
   serverTimestamp,
   Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
-import { goalSchema, type GoalInput } from "@/features/goals/schemas/goal.schema";
+import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
 import { db } from "@/lib/firebase/client";
 import type { Goal } from "@/features/goals/types/goal.types";
 import { toGoal } from "./goal-data";
@@ -31,10 +31,10 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
   return snapshot.exists() ? toGoal(snapshot.id, snapshot.data()) : null;
 }
 
-export async function createGoal(input: GoalInput) {
+export async function createGoal(input: GoalCreationInput) {
   // UID 由 Firebase 登入狀態取得，唔接受表單傳入另一個 userId。
   const userId = getCurrentUserId();
-  const { title, description, categoryId, startDate, targetDate } = goalSchema.parse(input);
+  const { title, description, categoryId, startDate, targetDate, subGoals = [] } = goalCreationSchema.parse(input);
 
   // categoryId 只可以係一個 document ID，唔可以係其他路徑。
   if (categoryId.includes("/") || [".", ".."].includes(categoryId)) {
@@ -45,7 +45,9 @@ export async function createGoal(input: GoalInput) {
     throw new Error("搵唔到本人嘅分類，請重新選擇。");
   }
 
-  const goal = await addDoc(collection(db, "users", userId, "goals"), {
+  const goal = doc(collection(db, "users", userId, "goals"));
+  const batch = writeBatch(db);
+  batch.set(goal, {
     userId,
     title,
     ...(description ? { description } : {}), // 冇描述就省略，唔寫 undefined。
@@ -57,6 +59,17 @@ export async function createGoal(input: GoalInput) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  for (const subGoal of subGoals) {
+    batch.set(doc(collection(goal, "subGoals")), {
+      ...subGoal,
+      userId, goalId: goal.id,
+      ...(subGoal.kind === "checklist" ? { isCompleted: false } : { currentValue: 0 }),
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  }
+  // 全部成功先儲存；任何一筆被 Rules 拒絕，整批都唔會寫入。
+  await batch.commit();
 
   return goal.id;
 }

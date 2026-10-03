@@ -2,29 +2,32 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
-import { goalSchema, type GoalInput } from "@/features/goals/schemas/goal.schema";
+import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
 import { createGoal } from "@/features/goals/services/goal.service";
+import { SubGoalFields } from "./sub-goal-fields";
 
 export function GoalForm() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const {
-    register, handleSubmit, reset, setError,
+    register, control, handleSubmit, reset, setError, setValue, unregister, getFieldState, formState,
     formState: { errors, isSubmitting },
-  } = useForm<GoalInput>({
+  } = useForm<GoalCreationInput>({
     // 驗證後仍交原本嘅 string 輸入俾 service；service 自己 parse 成 Date。
-    resolver: zodResolver(goalSchema, undefined, { raw: true }),
-    defaultValues: { title: "", description: "", categoryId: "", startDate: "", targetDate: "" },
+    resolver: zodResolver(goalCreationSchema, undefined, { raw: true }),
+    defaultValues: { title: "", description: "", categoryId: "", startDate: "", targetDate: "", subGoals: [] },
   });
+  const { fields, append, remove } = useFieldArray({ control, name: "subGoals" });
 
   useEffect(() => {
     let isCurrent = true;
@@ -36,12 +39,11 @@ export function GoalForm() {
     return () => { isCurrent = false; };
   }, []);
 
-  async function onSubmit(input: GoalInput) {
-    setSuccessMessage("");
+  async function onSubmit(input: GoalCreationInput) {
     try {
-      await createGoal(input);
+      const goalId = await createGoal(input);
       reset(); // 確認儲存成功先清空；失敗保留原本輸入。
-      setSuccessMessage("大目標已新增。");
+      router.push(`/goals/${goalId}`); // 儲存成功後直接睇返大目標同細目標。
     } catch {
       setError("root", { message: "新增目標失敗，請再試一次。" });
     }
@@ -107,11 +109,25 @@ export function GoalForm() {
           </div>
         </div>
         <p className="text-sm text-muted-foreground">日期未定可以留空，亦可以只填其中一個。</p>
-        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "新增中…" : "新增大目標"}</Button>
+        <section className="space-y-4 border-t pt-5" aria-labelledby="new-sub-goals-heading">
+          <h2 id="new-sub-goals-heading" className="text-lg font-semibold">細目標（可選）</h2>
+          <p className="text-sm text-muted-foreground">可以留空，或者加入幾個細目標，最後一齊儲存。</p>
+          {fields.map((field, index) => (
+            <div key={field.id} className="space-y-4 rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-medium">細目標 {index + 1}</h3>
+                <Button type="button" variant="outline" size="sm" onClick={() => remove(index)} aria-label={`移除細目標 ${index + 1}`}>移除</Button>
+              </div>
+              <SubGoalFields index={index} control={control} register={register} formState={formState}
+                getFieldState={getFieldState} setValue={setValue} unregister={unregister} />
+            </div>
+          ))}
+          <Button type="button" variant="outline" onClick={() => append({ kind: "checklist", title: "", description: "" })}>加入細目標</Button>
+        </section>
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "儲存中…" : "儲存目標"}</Button>
       </fieldset>
       <div aria-live="polite">
         {errors.root ? <p className="text-sm text-destructive" role="alert">{errors.root.message}</p> : null}
-        {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
       </div>
     </form>
   );

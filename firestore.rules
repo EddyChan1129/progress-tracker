@@ -111,6 +111,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId;
     }
 
+    // getAfter 睇同一個 batch 完成後嘅 parent，容許大／細目標一齊新增。
+    // Parent 唔存在或擁有者唔正確時，細目標仍然會被拒絕。
+    function hasOwnGoalAfter(userId, goalId) {
+      return getAfter(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId;
+    }
+
     function isValidNewSubGoal(userId, goalId) {
       let data = request.resource.data;
       let common = ['userId', 'goalId', 'title', 'kind', 'createdAt', 'updatedAt'];
@@ -178,7 +184,7 @@ service cloud.firestore {
       // 今步未開放大目標 update／delete／進度歷史。
       match /subGoals/{subGoalId} {
         allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
-        allow create: if isOwner(userId) && hasOwnGoal(userId, goalId)
+        allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)
           && isValidNewSubGoal(userId, goalId);
         // 修改、刪除同進度歷史留到之後嘅 task，暫時拒絕。
       }

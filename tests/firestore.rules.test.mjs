@@ -17,6 +17,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 // 保存今次測試用嘅 Firebase 測試環境，俾所有 test 共用。
@@ -523,6 +524,50 @@ describe("subgoal Firestore rules", () => {
     assert.equal((await assertSucceeds(getDoc(ref))).data().isCompleted, false);
     const list = await assertSucceeds(getDocs(collection(db, "users/alice/goals/sub-parent/subGoals")));
     assert.equal(list.size, 3);
+  });
+
+  it("allows creating a parent and both subgoal kinds in one atomic batch", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const parent = doc(db, "users/alice/goals/batch-parent");
+    const checklist = doc(parent, "subGoals/checklist");
+    const count = doc(parent, "subGoals/count");
+    const batch = writeBatch(db);
+    batch.set(parent, validGoal());
+    batch.set(checklist, validSubGoal({ goalId: parent.id }));
+    batch.set(count, validCountSubGoal({ goalId: parent.id }));
+
+    await assertSucceeds(batch.commit());
+    assert.equal((await assertSucceeds(getDoc(parent))).exists(), true);
+    assert.equal((await assertSucceeds(getDoc(checklist))).data().isCompleted, false);
+    assert.equal((await assertSucceeds(getDoc(count))).data().currentValue, 0);
+    assert.equal((await assertSucceeds(getDocs(collection(parent, "subGoals")))).size, 2);
+  });
+
+  it("rolls back the parent and every child if a batch child forges ownership or progress", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const invalidChildren = [
+      (goalId) => validSubGoal({ goalId, userId: "bob" }),
+      () => validSubGoal({ goalId: "another-parent" }),
+      (goalId) => validSubGoal({ goalId, isCompleted: true }),
+      (goalId) => validCountSubGoal({ goalId, currentValue: 1 }),
+    ];
+    for (const [index, invalidChild] of invalidChildren.entries()) {
+      const parent = doc(db, "users/alice/goals", `rejected-batch-${index}`);
+      const validChildRef = doc(parent, "subGoals/valid");
+      const invalidChildRef = doc(parent, "subGoals/invalid");
+      const batch = writeBatch(db);
+      batch.set(parent, validGoal());
+      batch.set(validChildRef, validSubGoal({ goalId: parent.id }));
+      batch.set(invalidChildRef, invalidChild(parent.id));
+      await assertFails(batch.commit());
+
+      // 唔只檢查 request 失敗，亦確認成功分支嘅資料冇被部分儲存。
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        for (const ref of [parent, validChildRef, invalidChildRef]) {
+          assert.equal((await getDoc(doc(context.firestore(), ref.path))).exists(), false);
+        }
+      });
+    }
   });
 
   it("rejects guests, other users and forged ownership or parent IDs", async () => {
