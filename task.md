@@ -479,7 +479,7 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 完成日期：2026-10-02。
   - 下一步：等使用者明確要求先開始 Task 21c。
 
-- [ ] Task 21c — Server 驗證身份同簽名上傳。
+- [x] Task 21c — complete：Server 驗證身份同簽名上傳。
   - 做：建立 Firebase ID token 驗證、Cloudinary server 設定同上傳 Route Handler；server 接收圖片、檢查格式／大小，再簽名上傳，控制 UID 資產路徑及允許參數。
   - 檔案：`lib/firebase/admin.ts`、`lib/cloudinary/server.ts`、`app/api/learning-images/`、最小權限測試。
   - 驗收：未登入／偽造 token／他人路徑被拒；secret 唔進入 client bundle；伺服器端上傳限制有效。
@@ -489,12 +489,24 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 大小調整：使用者確認改為每張最多 4 MiB（4 × 1024 × 1024 bytes），同步更新前端／server／測試；預留 multipart 空間，符合 Vercel Function 4.5 MB request body 上限。Task 21a／21b 上述 5 MiB 為當時設定，現已取代。
   - 範圍：未接駁表單，未儲存 Firestore 圖片關聯；每筆最多 5 張由 Task 21d 關聯時強制驗證。正常登入後嘅實際上傳留待 Task 21d 手動驗收。
   - 依賴：新增 firebase-admin、cloudinary、server-only。npm audit fix 已套用相容修復；audit 仍有 transitive advisories，未使用會降級 Firebase 嘅 force 修復。
-  - 狀態：等使用者理解確認，未標記 complete。
+  - 理解確認：使用者理解 userId 本身唔能證明身份、Postman 可繞過前端圖片檢查，以及 Cloudinary secret 必須留喺 server。補充：token 嘅可信性來自 server 驗證 Firebase 簽名、有效期及 project，唔係因為每次 token 都唔同。
+  - 完成日期：2026-10-02。
 
 - [ ] Task 21d — 上傳圖片同儲存關聯。
   - 做：前端將圖片同 Firebase ID token 送到 server 上傳 API；server 核實資產及所有權，再將 publicId 同所需圖片資料連到記錄，強制每筆最多 5 張；同步更新 schema／Rules，避免繞過 API 偽造受保護圖片欄位。
   - 檔案：learning 圖片 service、必要 Route Handler、LearningForm、learning schema／types、Rules。
   - 驗收：多圖可儲存並於 refresh 後顯示；圖片內容唔寫入 Firestore；上傳／關聯失敗保留文字並有明確重試方式，唔顯示假成功。
+  - 進度：新增 learning-image.service，逐張經 server 上傳；全部成功後 POST `/api/learning-entries` 儲存新記錄。Server 重新向 Cloudinary 核實本人 publicId、格式、大小及真實 URL，最多 5 張且不可重複；Firebase Admin transaction 核實本人分類再建立記錄。Firestore 只保存 publicId／URL，唔保存圖片 bytes。
+  - 重試：同一次提交保留 entryId 同已上傳 File → publicId 對照；失敗時保留並鎖定表單，按「重試儲存」沿用原資料。同 ID／同內容回傳成功，唔重複建立；同 ID／不同內容回傳 409，唔覆寫。離開頁面會失去本機重試資料。
+  - 顯示：列表同編輯頁顯示已儲存圖片；純文字記錄沿用原有流程。編輯目前只改文字並保留圖片；新增／移除既有記錄圖片同刪除含圖記錄留待 Task 21e。
+  - Rules：browser 新增只接受空 images；文字更新必須保留原本 images，禁止直接加圖、清空或改 URL；含圖記錄仍禁止 browser 直接刪除。Admin SDK 繞過 Rules，因此 API 自己驗證身份、分類、欄位同資產。
+  - 自動驗收：Rules 17/17、圖片儲存 Emulator test 1/1、上傳 2/2、圖片限制 2/2、schema 7/7 通過；lint、TypeScript、production build 通過。圖片儲存測試使用真正 Firestore Emulator transaction，但 Firebase 身份同 Cloudinary 回應為 mock，未驗證正式上傳。
+  - 本機設定：Firebase Console → Project settings → Service accounts → Generate new private key。JSON 留喺專案外；將 client_email 填入 `.env.local` 嘅 `FIREBASE_ADMIN_CLIENT_EMAIL`，private_key 填入 `FIREBASE_ADMIN_PRIVATE_KEY`（雙引號包住、保留 `\n`）。兩項均不可用 NEXT_PUBLIC，唔貼入聊天。範例已加入 `.env.example`；設定後重啟 dev server。
+  - 設定確認（2026-10-03）：本機 Admin email 已填寫，private key 可解析為有效 RSA key；未輸出秘密。格式檢查唔代表正式 Firestore 權限已驗證，等真實儲存驗收。
+  - Rules 部署：使用者已執行 `npx firebase deploy --only firestore:rules --project process-tracking-87407`，提供 CLI 成功編譯及 released rules 輸出。
+  - 手動驗收待完成：新增含 2 張圖片嘅記錄 → 返回列表 → refresh 後仍顯示圖片 → 編輯文字後圖片仍保留；中斷網絡後文字／選图仍保留，重試後只有一筆記錄。
+  - 已知階段限制：放棄失敗表單或遺失 upload 回應可能留下未關聯資產；Task 21e 處理清理，刪圖前亦需確認冇其他記錄引用同一資產。
+  - 狀態：實作完成，等環境設定、手動驗收同理解確認；未標記 complete。
 
 - [ ] Task 21e — 編輯／刪除圖片同失敗清理。
   - 做：記錄顯示圖片，編輯可新增／移除；刪記錄時處理資產。Server 驗證所有權；定義可重試清理順序，避免先刪仍被有效記錄引用嘅圖片。
@@ -596,4 +608,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 21c 實作及自動驗證已完成，未標記 complete。** 等理解確認；未開始 Task 21d。
+**Task 21d 已實作，未標記 complete。** Firebase Admin 設定格式已確認，使用者已成功部署 Rules；下一步手動驗收同確認理解；未開始 Task 21e。

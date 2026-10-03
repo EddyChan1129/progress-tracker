@@ -35,7 +35,7 @@ export function LearningImageInput({
   return (
     <section aria-labelledby="learning-images-heading" className="space-y-3">
       <h2 className="text-sm font-medium" id="learning-images-heading">
-        圖片（本機預覽）
+        圖片
       </h2>
       <label className="sr-only" htmlFor="learning-images">選擇圖片</label>
       <input
@@ -51,7 +51,7 @@ export function LearningImageInput({
       />
       <p className="text-sm text-muted-foreground" id="learning-images-help">
         JPEG、PNG、WebP；每張最多 4 MiB，每筆最多 5 張。已選 {files.length}/5 張。
-        圖片暫時只供本機預覽，重新整理或離開頁面後會清除。
+        按新增學習記錄後先會上傳；儲存前重新整理會清除選擇。
       </p>
       <p className="text-sm text-destructive" id="learning-images-error" role="alert">
         {error}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LearningImages } from "@/features/learning/components/learning-images";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
 import { deleteLearningEntry } from "@/features/learning/services/learning.service";
 import type { LearningEntry } from "@/features/learning/types/learning.types";
@@ -50,6 +51,7 @@ export function LearningCard({
       <div className="mt-3">
         <MarkdownContent content={entry.content} />
       </div>
+      <LearningImages images={entry.images} />
       <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
         <div className="flex gap-2">
           <dt>分類</dt>
@@ -67,7 +69,7 @@ export function LearningCard({
       </Button>
       <Button
         className="ml-2"
-        disabled={isDeleting}
+        disabled={isDeleting || entry.images.length > 0}
         onClick={handleDelete}
         size="sm"
         type="button"
@@ -75,6 +77,7 @@ export function LearningCard({
       >
         {isDeleting ? "刪除中…" : "刪除"}
       </Button>
+      {entry.images.length > 0 ? <p className="mt-2 text-sm text-muted-foreground">有圖片嘅記錄暫未開放刪除。</p> : null}
       {deleteError ? (
         <p className="mt-3 text-sm text-destructive" role="alert">
           {deleteError}

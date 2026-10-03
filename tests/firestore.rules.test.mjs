@@ -221,6 +221,21 @@ describe("learning entry Firestore rules", () => {
     if (deleted.exists()) throw new Error("Entry was not deleted.");
   });
 
+  it("allows text edits but rejects forged or removed image associations", async () => {
+    await seedLearningEntry("alice", "protected-images", "protected-category");
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const ref = doc(db, "users/alice/learningEntries/protected-images");
+    const images = [{ publicId: "verified", url: "https://res.cloudinary.com/test/image.png" }];
+    await assertFails(updateDoc(ref, { images, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, "users/alice/learningEntries/forged-images"), validLearningEntry({ categoryId: "protected-category", images })));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), ref.path), { images });
+    });
+    await assertSucceeds(updateDoc(ref, { title: "New title", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { images: [], updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { images: [{ ...images[0], url: "https://evil.example" }], updatedAt: serverTimestamp() }));
+  });
+
   it("rejects direct deletion of an entry with images", async () => {
     await seedLearningEntry("alice", "image-entry", "image-category");
     const path = "users/alice/learningEntries/image-entry";

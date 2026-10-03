@@ -64,7 +64,7 @@ service cloud.firestore {
         && data.categoryId is string
         && data.categoryId.size() > 0
         && data.images is list
-        && data.images.size() == 0
+        && data.images.size() <= 5
         && data.learnedAt is timestamp
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
@@ -86,12 +86,15 @@ service cloud.firestore {
       // 新增時，建立及更新時間都必須由 Firestore server 產生。
       allow create: if isOwner(userId)
         && isValidLearningEntry(userId)
+        && request.resource.data.images.size() == 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
       // 更新時不可轉移擁有者或改寫原本建立時間。
       allow update: if isOwner(userId)
         && isValidLearningEntry(userId)
+        // Browser 只可保留 server 已驗證嘅圖片，唔可以增刪／改 URL。
+        && request.resource.data.images == resource.data.images
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time;
