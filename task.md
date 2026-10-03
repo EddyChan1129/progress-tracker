@@ -542,10 +542,17 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者分清 Goal 型別同 goalSchema 輸入驗證；已解釋初始進度／狀態由系統設定，以及 refine 日期順序檢查。使用者確認 progressDelta 係今次增量，currentValue 係累積進度（5 + 1 = 6）。
   - 完成日期：2026-10-03。
 
-- [ ] Task 23 — 新增目標 service 同 Rules。
+- [x] Task 23 — complete：新增目標 service 同 Rules。
   - 做：`createGoal()`，currentValue 初始 0、status 為 not_started；檢查 category 所有權。
   - 檔案：`features/goals/services/goal.service.ts`、Rules 同測試。
   - 驗收：無法靠偽造輸入建立非零 currentValue 或他人目標。
+  - Service：`createGoal(input)` 從 Firebase Auth 取得 UID，Zod parse 輸入；讀本人 categories 路徑，確認分類存在及 userId 一致，先 addDoc 到本人 goals。日期轉 Timestamp，createdAt／updatedAt 用 serverTimestamp；空 description 省略。
+  - 初始值：service 明確寫 currentValue = 0、status = not_started；Rules 亦要求同樣值，唔信 caller 任意指定。
+  - Rules：本人可以 create／read goals；驗證必填／允許欄位、字串長度、有限正數目標、日期順序、本人分類同 server timestamps。update／delete 同 updates 子 collection 今步繼續禁止。
+  - 測試：新增 8 個 Goal Rules 測試，涵蓋正常建立／讀取、可選描述／小數、登入隔離、分類／owner、進度／狀態偽造、欄位／日期／時間及禁止更新／刪除／歷史。原本「未開放 collection」測試改用 settings，因為 goals 今步已開放。
+  - 驗證：`npm run test:rules` 26/26、`npm run test:schema` 12/12、lint、TypeScript 通過。全部寫入測試只用 demo Firestore Emulator；已提供正式 Rules 部署指令，尚未收到部署成功確認，表單／實際建立驗收留待 Task 24。
+  - 理解確認：使用者理解登入 UID 來源及分類存在／擁有者檢查；補充後確認 Rules 拒絕繞過 service 提交 currentValue = 100，亦拒絕本人 Goal 刪除，因為今步只開放 read／create。
+  - 完成日期：2026-10-03。
 
 - [ ] Task 24 — 新增目標表單。
   - 做：GoalForm，只收集使用者可編輯欄位；schema 管理驗證。
@@ -630,4 +637,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 22 已完成。** 下一步 Task 23；等使用者明確要求先開始。
+**Task 23 已完成。** 下一步 Task 24；等使用者明確要求先開始。

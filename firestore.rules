@@ -71,6 +71,44 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId));
     }
 
+    // Goal 建立驗證：即使繞過 Zod／service，直接呼叫 Firestore 都要過呢關。
+    function isValidNewGoal(userId) {
+      let data = request.resource.data;
+
+      return data.keys().hasAll([
+          'userId', 'title', 'categoryId', 'targetValue', 'currentValue',
+          'unit', 'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'title', 'description', 'categoryId', 'targetValue', 'currentValue',
+          'unit', 'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.userId is string && data.userId == userId
+        && data.title is string && data.title == data.title.trim()
+        && data.title.size() > 0 && data.title.size() <= 100
+        && data.get('description', '') is string
+        && data.get('description', '') == data.get('description', '').trim()
+        && data.get('description', '').size() <= 2000
+        && data.categoryId is string && data.categoryId.size() > 0
+        && data.categoryId == data.categoryId.trim()
+        && data.categoryId.matches('^[^/]+$')
+        && data.categoryId != '.' && data.categoryId != '..'
+        && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId))
+        && get(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId)).data.userId == userId
+        && data.targetValue is number && data.targetValue > 0
+        // 有限數減自己係 0；Infinity 減自己唔係 0，避免繞過 Zod。
+        && data.targetValue - data.targetValue == 0
+        && data.currentValue is number && data.currentValue == 0
+        && data.unit is string && data.unit == data.unit.trim()
+        && data.unit.size() > 0 && data.unit.size() <= 20
+        && data.startDate is timestamp && data.targetDate is timestamp
+        && data.targetDate >= data.startDate
+        // 初始狀態同 server 時間唔由使用者任意指定。
+        && data.status == 'not_started'
+        && data.createdAt is timestamp && data.createdAt == request.time
+        && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
@@ -101,6 +139,12 @@ service cloud.firestore {
 
       // 目前只刪除冇圖片嘅本人記錄；有圖片時需經之後嘅資產清理流程。
       allow delete: if isOwner(userId) && resource.data.images.size() == 0;
+    }
+
+    match /users/{userId}/goals/{goalId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidNewGoal(userId);
+      // 今步未開放 update／delete，同 updates 子 collection；繼續由下方預設拒絕。
     }
 
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。

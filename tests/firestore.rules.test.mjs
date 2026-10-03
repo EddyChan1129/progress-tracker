@@ -104,12 +104,12 @@ describe("deny-by-default Firestore rules", () => {
     // 模擬已登入使用者，Firebase Auth UID 係 "alice"。
     const db = testEnv.authenticatedContext("alice").firestore();
 
-    // 即使路徑 uid 同登入 uid 都係 alice，目前 rules 仍未開放 goals。
-    const goal = doc(db, "users/alice/goals/goal-1");
+    // 即使路徑 uid 同登入 uid 都係 alice，目前 rules 仍未開放 settings。
+    const settings = doc(db, "users/alice/settings/preferences");
 
     // 驗證「已登入」唔代表自動有權限；兩個 request 仍然必須失敗。
-    await assertFails(getDoc(goal));
-    await assertFails(setDoc(goal, { title: "Read every day" }));
+    await assertFails(getDoc(settings));
+    await assertFails(setDoc(settings, { theme: "dark" }));
   });
 });
 
@@ -359,5 +359,97 @@ describe("category Firestore rules", () => {
         createdAt: Timestamp.fromMillis(0),
       }),
     );
+  });
+});
+
+function validGoal(overrides = {}) {
+  return {
+    userId: "alice", title: "完成 10 題", categoryId: "goal-category",
+    targetValue: 10, currentValue: 0, unit: "題",
+    startDate: Timestamp.fromDate(new Date(2026, 9, 3)),
+    targetDate: Timestamp.fromDate(new Date(2026, 9, 12)),
+    status: "not_started", createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+describe("goal Firestore rules", () => {
+  before(async () => { await seedCategory("alice", "goal-category"); });
+
+  it("allows creating and reading own goals, including optional description and fractional targets", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/valid-goal"), validGoal()));
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/described-goal"), validGoal({ description: "練習 Map", targetValue: 2.5 })));
+    await assertSucceeds(getDoc(doc(db, "users/alice/goals/valid-goal")));
+    await assertSucceeds(getDocs(collection(db, "users/alice/goals")));
+  });
+
+  it("rejects unauthenticated access and access across owners", async () => {
+    for (const db of [testEnv.unauthenticatedContext().firestore(), testEnv.authenticatedContext("bob").firestore()]) {
+      await assertFails(getDoc(doc(db, "users/alice/goals/valid-goal")));
+      await assertFails(getDocs(collection(db, "users/alice/goals")));
+      await assertFails(setDoc(doc(db, "users/alice/goals/foreign-goal"), validGoal()));
+    }
+    const db = testEnv.authenticatedContext("alice").firestore();
+    await assertFails(setDoc(doc(db, "users/alice/goals/forged-owner"), validGoal({ userId: "bob" })));
+  });
+
+  it("rejects missing, foreign and malformed category references", async () => {
+    await seedCategory("bob", "bob-goal-category");
+    // 模擬錯誤 server 資料：即使路徑係 Alice，欄位 owner 都必須係 Alice。
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/alice/categories/wrong-owner-category"), { userId: "bob" });
+    });
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const categoryId of ["missing-category", "bob-goal-category", "wrong-owner-category", "../bob", "", ".", ".."] ) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/bad-category"), validGoal({ categoryId })));
+    }
+  });
+
+  it("rejects forged initial progress and status", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const changes of [{ currentValue: 5 }, { currentValue: -1 }, { currentValue: "0" }, { status: "completed" }, { status: "in_progress" }, { status: "paused" }]) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/forged-progress"), validGoal(changes)));
+    }
+  });
+
+  it("rejects invalid goal fields, extra fields and missing required fields", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const changes of [
+      { targetValue: 0 }, { targetValue: -1 }, { targetValue: Infinity }, { targetValue: NaN }, { targetValue: "10" },
+      { title: " " }, { title: "a".repeat(101) }, { unit: "" }, { unit: "a".repeat(21) },
+      { description: 123 }, { description: "a".repeat(2001) }, { color: "red" },
+    ]) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/bad-fields"), validGoal(changes)));
+    }
+    const missingUnit = validGoal();
+    delete missingUnit.unit;
+    await assertFails(setDoc(doc(db, "users/alice/goals/missing-unit"), missingUnit));
+  });
+
+  it("rejects reversed or malformed dates and accepts the same start and target date", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    await assertFails(setDoc(doc(db, "users/alice/goals/reversed-dates"), validGoal({ targetDate: Timestamp.fromDate(new Date(2026, 9, 2)) })));
+    await assertFails(setDoc(doc(db, "users/alice/goals/string-date"), validGoal({ startDate: "2026-10-03" })));
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/same-day"), validGoal({ targetDate: validGoal().startDate })));
+  });
+
+  it("rejects forged timestamps", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const field of ["createdAt", "updatedAt"]) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/fake-time"), validGoal({ [field]: Timestamp.fromMillis(0) })));
+    }
+  });
+
+  it("keeps goal updates, deletion and progress history closed for now", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const goal = doc(db, "users/alice/goals/locked-goal");
+    await assertSucceeds(setDoc(goal, validGoal()));
+    await assertFails(updateDoc(goal, { title: "Changed", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(goal, { currentValue: 5, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(goal));
+    const history = doc(db, "users/alice/goals/locked-goal/updates/forged-progress");
+    await assertFails(setDoc(history, { userId: "alice", progressDelta: 5 }));
+    await assertFails(getDoc(history));
   });
 });
