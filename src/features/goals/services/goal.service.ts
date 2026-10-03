@@ -14,7 +14,7 @@ import { db } from "@/lib/firebase/client";
 export async function createGoal(input: GoalInput) {
   // UID 由 Firebase 登入狀態取得，唔接受表單傳入另一個 userId。
   const userId = getCurrentUserId();
-  const { title, description, categoryId, targetValue, unit, startDate, targetDate } = goalSchema.parse(input);
+  const { title, description, categoryId, startDate, targetDate } = goalSchema.parse(input);
 
   // categoryId 只可以係一個 document ID，唔可以係其他路徑。
   if (categoryId.includes("/") || [".", ".."].includes(categoryId)) {
@@ -30,11 +30,9 @@ export async function createGoal(input: GoalInput) {
     title,
     ...(description ? { description } : {}), // 冇描述就省略，唔寫 undefined。
     categoryId,
-    targetValue,
-    currentValue: 0, // 新目標由 0 開始，唔使用 caller 傳入嘅進度。
-    unit,
-    startDate: Timestamp.fromDate(startDate),
-    targetDate: Timestamp.fromDate(targetDate),
+    // 可選日期冇值就省略，唔將 undefined 寫入 Firestore。
+    ...(startDate ? { startDate: Timestamp.fromDate(startDate) } : {}),
+    ...(targetDate ? { targetDate: Timestamp.fromDate(targetDate) } : {}),
     status: "not_started",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

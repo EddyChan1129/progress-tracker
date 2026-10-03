@@ -76,12 +76,11 @@ service cloud.firestore {
       let data = request.resource.data;
 
       return data.keys().hasAll([
-          'userId', 'title', 'categoryId', 'targetValue', 'currentValue',
-          'unit', 'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
+          'userId', 'title', 'categoryId', 'status', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'userId', 'title', 'description', 'categoryId', 'targetValue', 'currentValue',
-          'unit', 'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
+          'userId', 'title', 'description', 'categoryId',
+          'startDate', 'targetDate', 'status', 'createdAt', 'updatedAt'
         ])
         && data.userId is string && data.userId == userId
         && data.title is string && data.title == data.title.trim()
@@ -95,14 +94,11 @@ service cloud.firestore {
         && data.categoryId != '.' && data.categoryId != '..'
         && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId))
         && get(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId)).data.userId == userId
-        && data.targetValue is number && data.targetValue > 0
-        // 有限數減自己係 0；Infinity 減自己唔係 0，避免繞過 Zod。
-        && data.targetValue - data.targetValue == 0
-        && data.currentValue is number && data.currentValue == 0
-        && data.unit is string && data.unit == data.unit.trim()
-        && data.unit.size() > 0 && data.unit.size() <= 20
-        && data.startDate is timestamp && data.targetDate is timestamp
-        && data.targetDate >= data.startDate
+        // 日期可以省略；有傳入就必須係 Timestamp，唔接受 null／字串。
+        && (!('startDate' in data) || data.startDate is timestamp)
+        && (!('targetDate' in data) || data.targetDate is timestamp)
+        // 只有兩個日期都存在時，先檢查先後順序。
+        && (!('startDate' in data) || !('targetDate' in data) || data.targetDate >= data.startDate)
         // 初始狀態同 server 時間唔由使用者任意指定。
         && data.status == 'not_started'
         && data.createdAt is timestamp && data.createdAt == request.time
@@ -144,7 +140,8 @@ service cloud.firestore {
     match /users/{userId}/goals/{goalId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidNewGoal(userId);
-      // 今步未開放 update／delete，同 updates 子 collection；繼續由下方預設拒絕。
+      // 舊目標仍可由本人讀取；新資料格式只喺 create 時檢查，唔會刪除舊資料。
+      // 今步未開放 update／delete／子目標／進度歷史；繼續由下方預設拒絕。
     }
 
     // {document=**} 代表 database 入面任何深度、任何路徑嘅 document。

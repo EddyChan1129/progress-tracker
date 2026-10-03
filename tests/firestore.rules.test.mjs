@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { after, before, describe, it } from "node:test";
 
@@ -364,10 +365,7 @@ describe("category Firestore rules", () => {
 
 function validGoal(overrides = {}) {
   return {
-    userId: "alice", title: "完成 10 題", categoryId: "goal-category",
-    targetValue: 10, currentValue: 0, unit: "題",
-    startDate: Timestamp.fromDate(new Date(2026, 9, 3)),
-    targetDate: Timestamp.fromDate(new Date(2026, 9, 12)),
+    userId: "alice", title: "成為冷氣師傅", categoryId: "goal-category",
     status: "not_started", createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     ...overrides,
   };
@@ -376,11 +374,15 @@ function validGoal(overrides = {}) {
 describe("goal Firestore rules", () => {
   before(async () => { await seedCategory("alice", "goal-category"); });
 
-  it("allows creating and reading own goals, including optional description and fractional targets", async () => {
+  it("allows creating and reading own parent goals without quantities or dates", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
-    await assertSucceeds(setDoc(doc(db, "users/alice/goals/valid-goal"), validGoal()));
-    await assertSucceeds(setDoc(doc(db, "users/alice/goals/described-goal"), validGoal({ description: "練習 Map", targetValue: 2.5 })));
-    await assertSucceeds(getDoc(doc(db, "users/alice/goals/valid-goal")));
+    const ref = doc(db, "users/alice/goals/valid-goal");
+    await assertSucceeds(setDoc(ref, validGoal()));
+    await assertSucceeds(setDoc(doc(db, "users/alice/goals/described-goal"), validGoal({ description: "學識安裝同維修" })));
+    const snapshot = await assertSucceeds(getDoc(ref));
+    for (const field of ["targetValue", "currentValue", "unit", "startDate", "targetDate"]) {
+      assert.equal(field in snapshot.data(), false);
+    }
     await assertSucceeds(getDocs(collection(db, "users/alice/goals")));
   });
 
@@ -406,32 +408,47 @@ describe("goal Firestore rules", () => {
     }
   });
 
-  it("rejects forged initial progress and status", async () => {
+  it("rejects quantity fields and forged initial status", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
-    for (const changes of [{ currentValue: 5 }, { currentValue: -1 }, { currentValue: "0" }, { status: "completed" }, { status: "in_progress" }, { status: "paused" }]) {
+    for (const changes of [
+      { targetValue: 10 }, { currentValue: 0 }, { unit: "題" },
+      { status: "completed" }, { status: "in_progress" }, { status: "paused" }, { status: "unknown" },
+    ]) {
       await assertFails(setDoc(doc(db, "users/alice/goals/forged-progress"), validGoal(changes)));
     }
   });
 
-  it("rejects invalid goal fields, extra fields and missing required fields", async () => {
+  it("rejects invalid text, extra fields and missing required fields", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     for (const changes of [
-      { targetValue: 0 }, { targetValue: -1 }, { targetValue: Infinity }, { targetValue: NaN }, { targetValue: "10" },
-      { title: " " }, { title: "a".repeat(101) }, { unit: "" }, { unit: "a".repeat(21) },
+      { title: " " }, { title: "a".repeat(101) }, { title: " untrimmed " },
       { description: 123 }, { description: "a".repeat(2001) }, { color: "red" },
     ]) {
       await assertFails(setDoc(doc(db, "users/alice/goals/bad-fields"), validGoal(changes)));
     }
-    const missingUnit = validGoal();
-    delete missingUnit.unit;
-    await assertFails(setDoc(doc(db, "users/alice/goals/missing-unit"), missingUnit));
+    for (const field of ["userId", "title", "categoryId", "status", "createdAt", "updatedAt"]) {
+      const incomplete = validGoal();
+      delete incomplete[field];
+      await assertFails(setDoc(doc(db, "users/alice/goals/missing-field"), incomplete));
+    }
   });
 
-  it("rejects reversed or malformed dates and accepts the same start and target date", async () => {
+  it("accepts optional dates but rejects wrong types and reversed pairs", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
-    await assertFails(setDoc(doc(db, "users/alice/goals/reversed-dates"), validGoal({ targetDate: Timestamp.fromDate(new Date(2026, 9, 2)) })));
-    await assertFails(setDoc(doc(db, "users/alice/goals/string-date"), validGoal({ startDate: "2026-10-03" })));
-    await assertSucceeds(setDoc(doc(db, "users/alice/goals/same-day"), validGoal({ targetDate: validGoal().startDate })));
+    const startDate = Timestamp.fromDate(new Date(2026, 9, 3));
+    const targetDate = Timestamp.fromDate(new Date(2026, 9, 12));
+    for (const [id, dates] of [
+      ["start-only", { startDate }], ["target-only", { targetDate }],
+      ["both-dates", { startDate, targetDate }], ["same-day", { startDate, targetDate: startDate }],
+    ]) {
+      await assertSucceeds(setDoc(doc(db, "users/alice/goals", id), validGoal(dates)));
+    }
+    for (const dates of [
+      { startDate: targetDate, targetDate: startDate }, { startDate: "2026-10-03" },
+      { targetDate: "" }, { startDate: null }, { targetDate: null },
+    ]) {
+      await assertFails(setDoc(doc(db, "users/alice/goals/bad-dates"), validGoal(dates)));
+    }
   });
 
   it("rejects forged timestamps", async () => {
@@ -441,15 +458,34 @@ describe("goal Firestore rules", () => {
     }
   });
 
-  it("keeps goal updates, deletion and progress history closed for now", async () => {
+  it("keeps updates, deletion, subgoals and progress history closed for now", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const goal = doc(db, "users/alice/goals/locked-goal");
     await assertSucceeds(setDoc(goal, validGoal()));
     await assertFails(updateDoc(goal, { title: "Changed", updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(goal, { currentValue: 5, updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(goal));
-    const history = doc(db, "users/alice/goals/locked-goal/updates/forged-progress");
-    await assertFails(setDoc(history, { userId: "alice", progressDelta: 5 }));
-    await assertFails(getDoc(history));
+    for (const path of ["updates/forged-progress", "subGoals/child", "subGoals/child/updates/progress"]) {
+      const child = doc(db, "users/alice/goals/locked-goal", path);
+      await assertFails(setDoc(child, { userId: "alice", progressDelta: 5 }));
+      await assertFails(getDoc(child));
+    }
+  });
+
+  it("preserves owner read access to existing goals in the old format", async () => {
+    // 只喺 emulator 模擬之前已有嘅資料；唔改／刪正式 Firestore 記錄。
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/alice/goals/legacy-goal"), validGoal({
+        targetValue: 10, currentValue: 3, unit: "題", status: "in_progress",
+        startDate: Timestamp.fromDate(new Date(2026, 9, 3)),
+        targetDate: Timestamp.fromDate(new Date(2026, 9, 12)),
+      }));
+    });
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const snapshot = await assertSucceeds(getDoc(doc(db, "users/alice/goals/legacy-goal")));
+    assert.equal(snapshot.data().currentValue, 3);
+    assert.equal(snapshot.data().unit, "題");
+    await assertSucceeds(getDocs(collection(db, "users/alice/goals")));
+    await assertFails(getDoc(doc(testEnv.authenticatedContext("bob").firestore(), "users/alice/goals/legacy-goal")));
   });
 });

@@ -108,7 +108,8 @@ Firestore 查詢只放喺 feature service；UI 唔直接 import Firestore 操作
 users/{uid}/categories/{categoryId}
 users/{uid}/learningEntries/{entryId}
 users/{uid}/goals/{goalId}
-users/{uid}/goals/{goalId}/updates/{updateId}
+users/{uid}/goals/{goalId}/subGoals/{subGoalId}
+users/{uid}/goals/{goalId}/subGoals/{subGoalId}/updates/{updateId}
 ```
 
 唔需要預先建立 `users/{uid}` profile document，子 collection 可以獨立存在。`id` 由 document ID 讀出；保留 prompt 嘅 `userId`，Rules 要求佢等於路徑 uid，更新時不可改。
@@ -117,24 +118,27 @@ users/{uid}/goals/{goalId}/updates/{updateId}
 | --- | --- |
 | Category | userId、name、icon?、createdAt |
 | LearningEntry | userId、title、content（Markdown 字串）、categoryId、images、relatedGoalId?、learnedAt、createdAt、updatedAt |
-| Goal | userId、title、description?、categoryId、targetValue、currentValue、unit、startDate、targetDate、status、createdAt、updatedAt |
-| GoalUpdate | userId、goalId、progressDelta、note?、learningEntryId?、createdAt |
+| Goal（大目標） | userId、title、description?、categoryId、startDate?、targetDate?、status、createdAt、updatedAt |
+| SubGoal（子目標，之後實作） | userId、goalId、title、description?、kind（checklist／count）、isCompleted 或 targetValue／currentValue／unit、createdAt、updatedAt |
+| SubGoalUpdate（計量子目標歷史，之後實作） | userId、goalId、subGoalId、progressDelta、note?、learningEntryId?、createdAt |
 
 ### 對原 prompt 嘅具體調整／約定
 
 1. **Folder 結構保留 feature-based，但只建立用得到嘅檔案。** Auth 都當 feature；暫時唔需要空嘅 settings 或 utils 資料夾。
 2. **App 用 `Date`，Firestore 用 `Timestamp`。** Service 負責轉換，createdAt／updatedAt 用 server timestamp；未有 server timestamp 時 UI 要有處理。可選欄位冇值就省略，唔直接寫 `undefined`。
 3. **日期規則先定清楚。** v0.1 暫以使用者裝置本地時區計日、一星期由星期一開始；date input 喺本地日期轉換，避免 `YYYY-MM-DD` 被當 UTC 而移日。跨時區設定留待有需要先加。
-4. **Goal 進度唔可以直接 edit currentValue。** 每次更新用 transaction 同時新增 history 同更新 currentValue；Security Rules 要驗證兩者配對同增量一致。必要嘅內部配對欄位會喺該步先解釋。
+4. **計量進度只放喺計量子目標。** 例如「單字 300 個」先有 targetValue／currentValue／unit；每次更新用 transaction 同時新增 history 同更新 currentValue，Rules 驗證配對同增量一致。必要內部欄位留到該步解釋。
 5. **Learning Entry 同 Goal 關聯唔代表自動加進度。** 一筆記錄可能包含多題，進度要明確輸入；改／刪 learning entry 唔會暗中改 goal history。
-6. **Goal 狀態集中處理。** 初始值 0；新增進度後未達標為 in_progress、達標為 completed。暫停／恢復係明確操作；暫停時不可新增進度。v0.1 只加正數進度，未加入更正／刪除歷史功能。
-7. **避免孤兒資料。** Category v0.1 只需要新增／列表，唔做刪除；Goal 刪除必須處理 updates 同 learning entry 關聯，唔可以只刪 parent document。
-8. **Goal 有進度後鎖定計量單位同 targetValue。** 第一版仍可編輯標題、描述、分類、日期；避免改目標定義令舊紀錄失去意思。要重新定義目標就新增 Goal。
+6. **大目標狀態由使用者明確操作。** 新增時 not_started，之後可開始／完成／暫停／恢復；完成幾個子目標唔代表技能達成百分比，唔自動將大目標設為 completed。計量子目標達標只代表該子目標完成。
+7. **避免孤兒資料。** Category v0.1 只需要新增／列表，唔做刪除；有子目標、進度歷史或 learning entry 關聯嘅目標先禁止刪除，唔可以只刪 parent document。
+8. **子目標先做一層。** 預設係可勾選事項，例如「搵老師」、「報考試」；需要計量先選 count，例如「單字 300 個」。有進度後鎖定計量單位同 targetValue；唔做無限層級。
 9. **Dashboard 先用簡單計算。** 統計範圍必須完整，唔可以用「最近幾筆」當全量計 streak。資料量大時先加入彙總設計。
 10. **圖片用 Cloudinary（2026-09-27 使用者要求）。** 加入 v0.1，先完成文字 CRUD，再分步做多圖選擇、預覽、上傳、顯示同刪除；唔用 Firebase Storage。`imageUrls` 改成 `images: { publicId: string; url: string }[]`，未做圖片前用空陣列。保留 publicId 方便管理／刪除 Cloudinary 資產；圖片本體放 Cloudinary，Firestore 只存圖片資料。
 11. **唔記錄學習時長（2026-09-27 使用者確認）。** 移除時長欄位、表單輸入、相關驗證及時長統計。保留學習日期、系統 timestamps 同按學習日期計算嘅 streak。Dashboard 只顯示最近記錄、active goals／進度同 streak。
 12. **學習內容支援貼 code。** `content` 仍係一個字串，以 Markdown 儲存文字同 fenced code blocks（三個反引號，可標語言）；輸入時保留縮排／換行，顯示時用 code block。先用 textarea 同預覽，唔做完整 rich-text editor、code 執行或語法高亮。圖片先作為該筆記錄嘅附件，唔要求手動貼圖片 URL 或放入 Markdown。
 13. **Cloudinary 安全同資料一致性。** API secret 只放 server；上傳簽名同刪除 API 驗證登入者、資產所有權同允許參數，限制圖片格式／大小／數量。Cloudinary 同 Firestore 冇共用 transaction，必須處理部分失敗、取消編輯同重試清理。簽名上傳唔代表圖片讀取私人：Task 21a 先確認圖片可見性；如需私人圖片，用 authenticated delivery 並按需產生存取 URL，唔將會過期 URL 當永久資料保存。
+
+14. **大目標＋子目標（2026-10-03 使用者要求）。** 大目標例如「成為冷氣師傅」、「改善英文 speaking」，唔強迫填數量／單位；開始同目標日期可選。「聽 YouTube 30 分鐘」可以只係子目標標題，唔因此加入學習時長記錄。舊目標資料保留，唔自動刪除或遷移。
 
 Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation/client_side_uploading)、[Media access control](https://cloudinary.com/documentation/control_access_to_media)。
 
@@ -527,7 +531,9 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者理解儲存先正式移除圖片、先改 Firestore 再清 Cloudinary；清理失敗時 cleanupAfter 保留，下次列表 useEffect 呼叫清理重試。補充確認：只有刪成功先清空 cleanupAfter。
   - 完成日期：2026-10-03。
 
-## Phase 6 — Goal CRUD
+## Phase 6 — 大目標＋子目標
+
+Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀錄。2026-10-03 使用者改為大目標＋子目標，由 Task 24a 分步取代。
 
 - [x] Task 22 — complete：Goal 型別同 schema。
   - 做：Goal／GoalUpdate type、建立目標 schema；明確定義單位、正數目標、日期順序同狀態轉換。
@@ -554,54 +560,90 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 理解確認：使用者理解登入 UID 來源及分類存在／擁有者檢查；補充後確認 Rules 拒絕繞過 service 提交 currentValue = 100，亦拒絕本人 Goal 刪除，因為今步只開放 read／create。
   - 完成日期：2026-10-03。
 
-- [ ] Task 24 — 新增目標表單。
-  - 做：GoalForm，只收集使用者可編輯欄位；schema 管理驗證。
-  - 檔案：`features/goals/components/GoalForm.tsx`、`goals/new/page.tsx`。
-  - 驗收：建立「10 日完成 10 題」目標，資料同輸入一致。
+- [ ] Task 24 — 舊新增目標表單（設計已取代）。
+  - 原本做：強制輸入數量、單位同日期。
+  - 使用者驗收時提出「成為冷氣佬」、「英文 speaking」等大目標，要求下面有多個子目標；舊表單未完成理解／驗收，因此唔標記 complete。
+  - 使用者已 reset 到 Task 23 commit；舊 Task 24 表單已移除。改由 Task 24a／24b 做新版。
 
-- [ ] Task 25 — 目標列表同詳情。
-  - 做：`getGoals()`、`getGoal()`；顯示進度、單位、日期、狀態。進度條最多 100%，文字保留真實數值。
-  - 檔案：goal service、GoalCard／詳情元件、goals page、`goals/[id]/page.tsx`。
-  - 驗收：0%、達標、超標顯示合理；不存在／無權限狀態有處理。
+- [x] Task 24a — complete：大目標型別、schema、service 同 Rules。
+  - 做：大目標移除 targetValue／currentValue／unit；開始同目標日期可選。有兩個日期先檢查先後。
+  - 檔案：goal types、schema、createGoal service、Firestore Rules、schema／Rules tests。
+  - 保護：登入者 UID、本人分類、合法欄位、初始 not_started、server timestamps；今步仍禁止更新／刪除／子目標寫入。
+  - 舊資料：保留既有 Goal documents，本人仍可讀；唔刪除正式資料，唔自動遷移或部署 Rules。
+  - 驗收：無日期／只填一個日期可建立；反序日期、他人分類、額外計量欄位被拒；舊資料可讀。
+  - 完成日期：2026-10-03；已實作、通過自動檢查及完成理解確認。
+  - 實際檔案：`src/features/goals/types/goal.types.ts`、`src/features/goals/schemas/goal.schema.ts`、`src/features/goals/services/goal.service.ts`、`firestore.rules`、`tests/goal.schema.test.mts`、`tests/firestore.rules.test.mjs` 同本文件。
+  - 型別：Goal 只保留大目標欄位，日期用 `?`；移除未使用嘅舊 GoalUpdate，計量子目標歷史型別留待 Task 29。
+  - Schema／service：日期省略或輸入空字串都接受；有填先轉成本地 Date／Timestamp。createGoal 只寫有值嘅日期，status 固定 not_started；數量／單位由 strict schema 拒絕。
+  - Rules：hasAll 只列必填欄位，hasOnly 包括可選描述／日期；日期有提供就須為 Timestamp，兩個都有先比較。舊格式 Goal 本人仍可讀，未變更正式資料。
+  - 自動驗收：schema 13/13（其中 Goal 6 個）、Rules 27/27（其中 Goal 9 個）、lint、TypeScript、production build 同 diff whitespace 檢查通過；全部 Rules 測試只用 demo Emulator。
+  - 正式環境：新版 Rules 尚未部署；新版表單留待 Task 24b，今步唔會新增 UI。
+  - 理解問題：① 開始日期填咗、目標日期留空，可唔可以新增？兩個都有填但目標日期更早又點？② 點解日期喺 hasOnly 入面，但唔喺 hasAll 入面？
+  - 理解確認：經例子講解後，使用者確認只有目標日期亦可新增；兩個日期各自可選，有齊先比較先後。使用者答啱缺少必填 categoryId 由 hasAll 拒絕；已重溫 hasAll 要有齊必填欄位、hasOnly 限制允許欄位但唔要求全部出現。
 
-- [ ] Task 26 — 編輯／暫停／恢復目標。
-  - 做：`updateGoal()` 同狀態操作；有進度後鎖定 targetValue／unit；一般編輯不可改 currentValue。
-  - 檔案：goal service、GoalForm、edit page、Rules 同測試。
-  - 驗收：合法編輯正常；直接提交非法進度／狀態被 Rules 拒絕。
+- [ ] Task 24b — 新版大目標表單。
+  - 做：新增 GoalForm，同 /goals/new 入口；移除數量／單位，日期可留空；沿用 schema 驗證、loading／error。
+  - 檔案：goal form、goals/new page、goals page。
+  - 驗收：建立「成為冷氣師傅」或「改善英文 speaking」，未填日期亦可；失敗保留輸入，成功先 reset。
 
-- [ ] Task 27 — 刪除目標同關聯清理。
-  - 做：先解釋 deletion policy；無 updates／learning 關聯先可刪。有關聯時 v0.1 顯示原因並禁止刪除，唔靜默 cascade。
-  - 檔案：goal service、刪除 UI、必要關聯追蹤欄位、Rules 同測試。
-  - 驗收：空目標可刪；有關聯目標不可刪；Rules 必須同步防止繞過 UI 刪除。若安全維護關聯需要拆步，先拆再實作。
+- [ ] Task 25 — 大目標列表同詳情。
+  - 做：getGoals／getGoal；顯示標題、分類、可選日期、狀態；處理舊資料讀取。
+  - 檔案：goal service、GoalCard／詳情元件、goals page、goals/[id]/page。
+  - 驗收：本人資料 refresh 後仍在；不存在／無權限有提示；唔用舊計量數值表示大目標能力。
 
-## Phase 7 — Goal progress history
+- [ ] Task 25a — 子目標型別同 schema。
+  - 做：一層 SubGoal；預設 checklist，count 類型先要求正數目標／單位。例子：搵老師、單字 300 個。
+  - 檔案：goal feature 子目標 types／schema 同最小測試。
+  - 驗收：checklist 唔強迫填數量；count 必須有合法數量／單位，兩種欄位唔混用。
 
-- [ ] Task 28 — 設計一筆進度更新。
-  - 做：先用 +2 題示範 transaction、history、currentValue 同 Rules 配對；定義重試／重複點擊處理。
-  - 檔案：先更新本文件嘅進度規則，必要時拆細下一步。
-  - 驗收：你理解點解唔可以分開兩次普通寫入，亦理解 transaction 唔等於自動避免所有重複提交。
+- [ ] Task 25b — 子目標 service 同 Rules。
+  - 做：本人既有大目標下面新增／讀取子目標；檢查 parent 存在同擁有者，count 初始進度 0、checklist 初始未完成。
+  - 檔案：子目標 service、Rules 同測試。
+  - 驗收：他人／不存在 parent、偽造初始進度或已完成狀態被拒。
 
-- [ ] Task 29 — 寫入進度 service 同一致性 Rules。
-  - 做：`addGoalProgress()` 用 transaction 原子寫入 update 同新進度／狀態；history 不可直接修改。
-  - 檔案：goal service、goal schema、Rules 同測試。
+- [ ] Task 25c — 子目標表單同列表。
+  - 做：大目標詳情頁新增子目標，按 kind 顯示必要欄位；列出 checklist／計量進度。
+  - 檔案：子目標 form／list、goal detail page。
+  - 驗收：英文目標下面建立「搵老師」同「單字 300 個」，refresh 後仍存在。
+
+- [ ] Task 26 — 編輯大目標／子目標。
+  - 做：更新標題、描述等合法欄位，保護 owner／createdAt／parent；有進度後唔改計量定義。實作前如太大再拆步。
+  - 檔案：goal／子目標 service、表單、edit page、Rules 同測試。
+  - 驗收：預填／更新正常；編輯唔可以偷改完成狀態或計量進度。
+
+- [ ] Task 27 — 刪除政策同關聯保護。
+  - 做：空目標先可刪；有子目標、歷史或 learning 關聯先顯示原因並禁止，唔靜默 cascade。需要追蹤關聯就先拆步。
+  - 檔案：service、刪除 UI、Rules 同測試。
+  - 驗收：Rules 同樣防止繞過 UI 刪除有關聯資料，避免孤兒資料。
+
+## Phase 7 — 子目標完成、計量進度同大目標狀態
+
+- [ ] Task 28 — 勾選子目標完成／未完成。
+  - 做：只改 checklist 子目標 isCompleted，同步 service／Rules；count 唔接受直接勾選。
+  - 檔案：子目標 service、列表 UI、Rules 同測試。
+  - 驗收：勾選 refresh 後保留；失敗回復提示，其他帳戶不可操作。
+
+- [ ] Task 29 — 計量子目標進度歷史。
+  - 做：先用 +2 個單字解釋 transaction、history、currentValue 同重試；再分步加入 service／Rules、進度表單同 timeline。
+  - 實作前必須拆細，唔一次做晒一致性邏輯同 UI。
   - 驗收：並行 +2／+3 冇遺失；失敗唔只寫一半；只改 currentValue 或只新增 history 被拒；同一次操作重試唔重複計數。
 
-- [ ] Task 30 — 進度表單同 timeline。
-  - 做：GoalUpdateForm、`getGoalUpdates()`、GoalTimeline；顯示增量、備註、時間，成功後刷新。
-  - 檔案：goal service、相關 components、goal detail page。
-  - 驗收：提交 +2 後數值同 timeline 同步；暫停時不可新增；loading／error 完整。
+- [ ] Task 30 — 大目標開始／完成／暫停／恢復。
+  - 做：使用者明確操作大目標 status，service／Rules 限制合法轉換；子目標完成數唔自動等於大目標 completed。
+  - 檔案：goal service、狀態 UI、Rules 同測試。
+  - 驗收：全部子目標完成仍由使用者判斷大目標完成，非法狀態轉換被拒。
 
-- [ ] Task 31 — Learning Entry 關聯 Goal。
-  - 做：LearningForm 加可選 goal；進度表單可選本人記錄。Service／Rules 驗證關聯，維護 Task 27 刪除保護。
+- [ ] Task 31 — Learning Entry 關聯大目標。
+  - 做：LearningForm 可選本人目標；service／Rules 驗證關聯，維護 Task 27 刪除保護；唔自動增加子目標進度。
   - 檔案：learning／goal form、schema、service、Rules 同測試。
-  - 驗收：關聯／改關聯／取消關聯正常；他人／不存在目標被拒；刪記錄後 history 保留並顯示記錄已不存在。
+  - 驗收：關聯／改關聯／取消關聯正常；他人／不存在目標被拒；歷史唔因 learning entry 刪除而消失。
 
 ## Phase 8 — Simple dashboard
 
 - Task 32 — cancelled（2026-09-27）：按使用者要求取消時長統計，唔需要實作。保留編號，之後直接做 Task 33。
 
 - [ ] Task 33 — 最近記錄同 active goals。
-  - 做：重用現有 Card／services，顯示最近記錄、not_started／in_progress goals 同進度百分比。
+  - 做：重用現有 Card／services，顯示最近記錄、not_started／in_progress 大目標同已完成子目標數；唔將勾選數換算為能力百分比。
   - 檔案：dashboard components／page、必要 service query。
   - 驗收：paused／completed 唔當 active；空資料有清楚提示。
 
@@ -637,4 +679,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 23 已完成。** 下一步 Task 24；等使用者明確要求先開始。
+**Task 24a 已完成。** 下一步係 Task 24b 新版大目標表單；等使用者明確要求先開始。
