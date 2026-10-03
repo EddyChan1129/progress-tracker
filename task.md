@@ -529,10 +529,18 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
 
 ## Phase 6 — Goal CRUD
 
-- [ ] Task 22 — Goal 型別同 schema。
+- [x] Task 22 — complete：Goal 型別同 schema。
   - 做：Goal／GoalUpdate type、建立目標 schema；明確定義單位、正數目標、日期順序同狀態轉換。
   - 檔案：`features/goals/types/goal.types.ts`、`schemas/goal.schema.ts`。
   - 驗收：targetValue <= 0、結束早於開始等非法輸入被拒絕。
+  - 已實作：`goal.types.ts` 定義 Goal／GoalUpdate／GoalStatus；`goal.schema.ts` 只接收建立表單欄位，日期 string parse 成本地午夜 Date。
+  - 單位：由使用者填短文字，例如「題」、「章」、「次」；targetValue 必須係有限正數，允許小數。建立時 currentValue 固定 0、status 固定 not_started，留待 Task 23 service 寫入，唔由使用者填。
+  - 日期：targetDate 可以等於 startDate，唔可以更早；驗證錯誤放喺 targetDate。標題／分類／單位不可空白；description 可省略。
+  - 狀態約定：not_started（0 進度）→ in_progress（大於 0 但未達標）→ completed（達標或超標）。not_started／in_progress 可明確暫停為 paused；恢復按 currentValue 回到相應狀態；paused 唔可新增進度、completed 唔再新增進度或暫停。實際 service／Rules 轉換驗證留待 Task 26／29。
+  - 保護：strict schema 拒絕額外欄位，例如 userId／currentValue／status；TypeScript 型別同前端 schema 都唔取代 Task 23 嘅 Firestore Rules。
+  - 驗證：新增 5 個 Goal schema 測試；包括正數／數字型別、空白／長度、無效日期／日期順序、系統欄位偽造。`npm run test:schema` 全部 12 個通過。
+  - 理解確認：使用者分清 Goal 型別同 goalSchema 輸入驗證；已解釋初始進度／狀態由系統設定，以及 refine 日期順序檢查。使用者確認 progressDelta 係今次增量，currentValue 係累積進度（5 + 1 = 6）。
+  - 完成日期：2026-10-03。
 
 - [ ] Task 23 — 新增目標 service 同 Rules。
   - 做：`createGoal()`，currentValue 初始 0、status 為 not_started；檢查 category 所有權。
@@ -622,4 +630,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 21e 已完成。** 下一步 Task 22；等使用者明確要求先開始。
+**Task 22 已完成。** 下一步 Task 23；等使用者明確要求先開始。
