@@ -742,7 +742,7 @@ describe("subgoal Firestore rules", () => {
     await assertSucceeds(setDoc(ref, validSubGoal({ description: "舊描述" })));
     await assertSucceeds(updateDoc(ref, { title: "新標題", description: deleteField(), updatedAt: serverTimestamp() }));
     for (const changes of [
-      { userId: "bob" }, { goalId: "other" }, { kind: "count" }, { isCompleted: true },
+      { userId: "bob" }, { goalId: "other" }, { kind: "count" },
       { createdAt: Timestamp.fromMillis(1) }, { extra: true }, { title: "" },
       { targetValue: 10 }, { unit: "個" }, { title: deleteField() },
       { updatedAt: Timestamp.fromMillis(1) },
@@ -795,11 +795,11 @@ describe("subgoal Firestore rules", () => {
     await assertFails(updateDoc(count, { isCompleted: true, updatedAt: serverTimestamp() }));
   });
 
-  it("keeps progress edits, deletion, history and another level of children closed", async () => {
+  it("keeps checklist deletion, history and another level of children closed", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const ref = doc(db, "users/alice/goals/sub-parent/subGoals/locked");
     await assertSucceeds(setDoc(ref, validSubGoal()));
-    await assertFails(updateDoc(ref, { isCompleted: true, updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref, { isCompleted: true, updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(ref));
     for (const path of ["updates/progress", "subGoals/grandchild"]) {
       const child = doc(ref, path);

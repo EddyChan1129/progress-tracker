@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSubGoals, setChecklistCompletion } from "../services/sub-goal.service";
 import type { SubGoal } from "../types/sub-goal.types";
+import { SubGoalProgress } from "./sub-goal-progress";
 
 export function SubGoalList({ goalId }: { goalId: string }) {
   const [subGoals, setSubGoals] = useState<SubGoal[]>([]);
@@ -36,10 +37,12 @@ export function SubGoalList({ goalId }: { goalId: string }) {
   }, [goalId]);
 
   if (isLoading) return <p className="text-sm text-muted-foreground" role="status">載入細目標中…</p>;
-  if (errorMessage) return <p className="text-sm text-destructive" role="alert">{errorMessage}</p>;
+  if (errorMessage && subGoals.length === 0) return <p className="text-sm text-destructive" role="alert">{errorMessage}</p>;
   if (subGoals.length === 0) return <p className="text-sm text-muted-foreground" role="status">呢個大目標未有細目標。</p>;
 
   return (
+    <div className="space-y-3">
+    {errorMessage ? <p className="text-sm text-destructive" role="alert">{errorMessage}</p> : null}
     <ul className="space-y-3" aria-label="細目標列表">
       {subGoals.map((subGoal) => (
         <li key={subGoal.id} className="min-w-0 space-y-2 rounded-xl border bg-card p-5">
@@ -56,8 +59,13 @@ export function SubGoalList({ goalId }: { goalId: string }) {
               ? `勾選完成 · ${subGoal.isCompleted ? "已完成" : "未完成"}`
               : `計數 · ${subGoal.currentValue} / ${subGoal.targetValue} ${subGoal.unit} · ${subGoal.currentValue >= subGoal.targetValue ? "已完成" : "未完成"}`}
           </p>
+          {subGoal.kind === "count" ? <SubGoalProgress subGoal={subGoal} onSaved={(currentValue) => {
+            setSubGoals((current) => current.map((item) => item.id === subGoal.id && item.kind === "count"
+              ? { ...item, currentValue } : item));
+          }} /> : null}
         </li>
       ))}
     </ul>
+    </div>
   );
 }

@@ -183,6 +183,33 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
+    // 總數同歷史互相配對：兩份資料必須喺同一次 atomic write 出現。
+    function isPairedCountProgress(userId, goalId, subGoalId, old, next, updateId) {
+      let path = /databases/$(database)/documents/users/$(userId)/goals/$(goalId)/subGoals/$(subGoalId)/updates/$(updateId);
+      let history = getAfter(path).data;
+      return old.userId == userId && old.goalId == goalId && old.kind == 'count'
+        && next.diff(old).affectedKeys().hasOnly(['currentValue', 'lastUpdateId', 'updatedAt'])
+        && next.lastUpdateId == updateId
+        && updateId is string && updateId.matches('^[A-Za-z0-9_-]{1,128}$')
+        // 舊操作 ID 唔准再用嚟增加總數。
+        && !exists(path)
+        && old.currentValue is number && old.currentValue >= 0
+        && next.currentValue is number && next.currentValue > old.currentValue
+        && next.currentValue - next.currentValue == 0
+        && next.updatedAt == request.time
+        && history.keys().hasAll(['userId', 'goalId', 'subGoalId', 'progressDelta', 'previousValue', 'currentValue', 'createdAt'])
+        && history.keys().hasOnly(['userId', 'goalId', 'subGoalId', 'progressDelta', 'previousValue', 'currentValue', 'note', 'createdAt'])
+        && history.userId == userId && history.goalId == goalId && history.subGoalId == subGoalId
+        && history.progressDelta is number && history.progressDelta > 0
+        && history.progressDelta - history.progressDelta == 0
+        && history.previousValue == old.currentValue && history.currentValue == next.currentValue
+        && next.currentValue == old.currentValue + history.progressDelta
+        && history.get('note', '') is string
+        && history.get('note', '') == history.get('note', '').trim()
+        && history.get('note', '').size() <= 2000
+        && history.createdAt == request.time;
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
@@ -233,8 +260,19 @@ service cloud.firestore {
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)
           && isValidNewSubGoal(userId, goalId);
         allow update: if isOwner(userId) && hasOwnGoal(userId, goalId)
-          && (isValidSubGoalUpdate(userId, goalId) || isValidChecklistCompletion(userId, goalId));
-        // 刪除同進度歷史留到之後嘅 task。
+          && (isValidSubGoalUpdate(userId, goalId) || isValidChecklistCompletion(userId, goalId)
+            || isPairedCountProgress(userId, goalId, subGoalId, resource.data,
+              request.resource.data, request.resource.data.lastUpdateId));
+        // 歷史只准新增同讀取；唔開放 update／delete。
+        match /updates/{updateId} {
+          allow read: if isOwner(userId) && hasOwnGoal(userId, goalId)
+            && get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)/subGoals/$(subGoalId)).data.kind == 'count';
+          allow create: if isOwner(userId) && hasOwnGoal(userId, goalId)
+            && isPairedCountProgress(userId, goalId, subGoalId,
+              get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)/subGoals/$(subGoalId)).data,
+              getAfter(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)/subGoals/$(subGoalId)).data,
+              updateId);
+        }
       }
     }
 

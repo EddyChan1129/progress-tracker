@@ -4,7 +4,10 @@ import type { SubGoal } from "../types/sub-goal.types";
 
 // Firestore Timestamp → Date；同時避免將錯誤資料當成合法 SubGoal。
 export function toSubGoal(id: string, data: DocumentData): SubGoal {
-  const { userId, goalId, createdAt, updatedAt, currentValue, isCompleted, ...input } = data;
+  const { userId, goalId, createdAt, updatedAt, currentValue, isCompleted, lastUpdateId, ...input } = data;
+  if (lastUpdateId !== undefined && (data.kind !== "count" || typeof lastUpdateId !== "string" || !lastUpdateId)) {
+    throw new Error("細目標進度操作不正確。");
+  }
   const fields = subGoalSchema.parse(input);
   if (typeof userId !== "string" || typeof goalId !== "string" ||
     !(createdAt instanceof Timestamp) || !(updatedAt instanceof Timestamp)) {

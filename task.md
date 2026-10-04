@@ -120,7 +120,7 @@ users/{uid}/goals/{goalId}/subGoals/{subGoalId}/updates/{updateId}
 | LearningEntry | userId、title、content（Markdown 字串）、categoryId、images、relatedGoalId?、learnedAt、createdAt、updatedAt |
 | Goal（大目標） | userId、title、description?、categoryId、startDate?、targetDate?、status、createdAt、updatedAt |
 | SubGoal（子目標，之後實作） | userId、goalId、title、description?、kind（checklist／count）、isCompleted 或 targetValue／currentValue／unit、createdAt、updatedAt |
-| SubGoalUpdate（計量子目標歷史，之後實作） | userId、goalId、subGoalId、progressDelta、note?、learningEntryId?、createdAt |
+| SubGoalUpdate（計量子目標歷史） | id（操作 ID）、userId、goalId、subGoalId、progressDelta、previousValue、currentValue、note?、createdAt；learningEntryId 留待關聯功能 |
 
 ### 對原 prompt 嘅具體調整／約定
 
@@ -683,20 +683,26 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 自動驗收：新增 checklist toggle、count 禁止勾選、偽造身份／kind／進度／時間及跨帳戶更新測試；lint、typecheck、Webpack production build 通過。Firestore emulator 受目前環境 port／權限限制，新增 Rules 測試未能喺本機重跑。
   - 手動驗收／理解確認（2026-10-04）：使用者確認勾選及取消勾選後 refresh 保留狀態；理解 count 由 currentValue >= targetValue 決定完成，transaction 讀取資料被修改時會重新讀取及檢查。上述 Rules 測試限制仍保留。
 
-- [ ] Task 29 — 計量子目標進度歷史。
+- [x] Task 29 — 計量子目標進度歷史。
   - 做：先用 +2 個單字解釋 transaction、history、currentValue 同重試；再分步加入 service／Rules、進度表單同 timeline。
-  - 實作前必須拆細，唔一次做晒一致性邏輯同 UI。
+  - 已按使用者最新要求，一次完成 29a–d；唔連接 browser，由使用者自行手動測試。
   - 驗收：並行 +2／+3 冇遺失；失敗唔只寫一半；只改 currentValue 或只新增 history 被拒；同一次操作重試唔重複計數。
 
-- [ ] Task 29a — 理解計量進度流程、型別同輸入驗證。
+- [x] Task 29a — 計量進度型別同輸入驗證。
   - 先講解：currentValue 50 + progressDelta 2 = 52；同一 transaction 更新總數並新增不可改寫嘅歷史。同次儲存重試沿用 operation ID，防止重複加數。
-  - 理解確認後建立最小進度輸入 schema／歷史 type 同驗證測試；今次先完成拆步及講解，程式未開始。
-- [ ] Task 29b — 進度 service、Rules 同一致性測試。
+  - 已建立 strict subGoalProgressSchema（有限正數增量、可選 2000 字備註）、SubGoalUpdate 型別及讀取資料驗證；Timestamp 轉 Date。
+- [x] Task 29b — 進度 service、Rules 同一致性測試。
   - 驗證本人 count；transaction 配對總數／歷史，操作 ID 保證重試唔重複計數。測試並行 +2／+3、非法資料、單邊寫入及同次操作重試。
-- [ ] Task 29c — 新增進度表單。
+  - 已實作 commitSubGoalProgress／addSubGoalProgress；lastUpdateId 配對同次寫入嘅歷史，previousValue／currentValue 驗證增量一致。Rules 禁止單邊寫入、重用舊歷史增加進度、改寫／刪除歷史及跨帳戶存取。
+  - 若 Rules 因並行操作令 previousValue 過期而拒絕，service 只喺 server 確認總數已改變時有限次重試，沿用操作 ID；真正權限錯誤照樣拋出。
+- [x] Task 29c — 新增進度表單。
   - 輸入增加數量及可選備註；提交中防重複按，失敗保留輸入及同次操作 ID，成功先更新畫面。
-- [ ] Task 29d — 進度歷史列表。
+  - SubGoalProgress 重用 RHF／Zod／Input／Button；結果未確認時保留並鎖住該次輸入，以「重試儲存」確認原操作，成功先 reset 同更新總數。
+- [x] Task 29d — 進度歷史列表。
   - 讀取本人 count 歷史，顯示增量／備註／時間，refresh 後仍在；處理 loading／empty／error。
+  - 同一卡片可展開歷史，按 createdAt 新到舊；新增成功重新讀取，載入失敗提供重試。
+  - 自動驗收（2026-10-04）：schema 24、goal data 5、Rules／transaction 54 個測試全部通過；包括並行 +2／+3、同操作並行重試只計一次、非法配對整批回滾。修正 Task 28 舊測試仍假設 checklist 不可勾選嘅過期斷言。lint、typecheck、Webpack production build 通過。
+  - 手動驗收（2026-10-04）：使用者確認三項測試通過：新增 +2 同備註後總數／歷史更新、refresh 保留資料、兩個分頁分別新增 +2／+3 後總數增加 5。Task 29 complete。
 
 - [ ] Task 30 — 大目標開始／完成／暫停／恢復。
   - 做：使用者明確操作大目標 status，service／Rules 限制合法轉換；子目標完成數唔自動等於大目標 completed。
@@ -749,4 +755,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 28 complete；Task 29 已開始並拆成 29a–29d。** 目前 29a 先講解資料流程，等理解確認後實作型別／schema；唔自動開始 29b。
+**Task 29 complete，自動檢查及使用者三項手動驗收通過。** 下一步係 Task 30：大目標開始／完成／暫停／恢復；等使用者指示先開始。

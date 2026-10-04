@@ -25,3 +25,16 @@ export interface CountSubGoal extends SubGoalBase {
 
 // 用 kind 分辨兩種資料，唔將所有欄位都設成 optional。
 export type SubGoal = ChecklistSubGoal | CountSubGoal;
+
+// 每次增加進度留一筆不可修改嘅歷史；id 亦係今次操作嘅唯一 ID。
+export interface SubGoalUpdate {
+  id: string;
+  userId: string;
+  goalId: string;
+  subGoalId: string;
+  progressDelta: number;
+  previousValue: number;
+  currentValue: number;
+  note?: string;
+  createdAt: Date;
+}

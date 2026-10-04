@@ -14,6 +14,7 @@ it("maps both kinds and Timestamp dates without mixing progress fields", () => {
   const count = toSubGoal("words", { ...common, kind: "count", targetValue: 300, currentValue: 20, unit: "個" });
   assert.equal(count.kind, "count");
   if (count.kind === "count") assert.equal(count.currentValue, 20);
+  assert.equal(toSubGoal("words", { ...common, kind: "count", targetValue: 300, currentValue: 22, unit: "個", lastUpdateId: "operation" }).kind, "count");
   assert.equal("isCompleted" in count, false);
 });
 

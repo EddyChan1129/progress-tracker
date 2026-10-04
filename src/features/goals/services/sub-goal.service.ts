@@ -4,6 +4,8 @@ import { subGoalSchema, type SubGoalInput } from "../schemas/sub-goal.schema";
 import type { SubGoal } from "../types/sub-goal.types";
 import { db } from "@/lib/firebase/client";
 import { toSubGoal } from "./sub-goal-data";
+import { commitSubGoalProgress, toSubGoalUpdate } from "./sub-goal-progress";
+import type { SubGoalProgressInput } from "../schemas/sub-goal-progress.schema";
 
 // 新增同讀取都要有本人既有大目標；唔接受 caller 傳入 userId。
 async function getSubGoalsCollection(goalId: string) {
@@ -51,4 +53,23 @@ export async function setChecklistCompletion(goalId: string, subGoalId: string, 
     }
     transaction.update(subGoal, { isCompleted, updatedAt: serverTimestamp() });
   });
+}
+
+async function getCountSubGoalReference(goalId: string, subGoalId: string) {
+  const { userId, ref } = await getSubGoalsCollection(goalId);
+  if (!subGoalId.trim() || subGoalId !== subGoalId.trim() || subGoalId.includes("/") || [".", ".."].includes(subGoalId)) {
+    throw new Error("細目標不正確。");
+  }
+  return { userId, ref: doc(ref, subGoalId) };
+}
+
+export async function addSubGoalProgress(goalId: string, subGoalId: string, input: SubGoalProgressInput, operationId: string) {
+  const { userId, ref } = await getCountSubGoalReference(goalId, subGoalId);
+  return commitSubGoalProgress(ref, userId, goalId, input, operationId);
+}
+
+export async function getSubGoalUpdates(goalId: string, subGoalId: string) {
+  const { ref } = await getCountSubGoalReference(goalId, subGoalId);
+  const snapshot = await getDocs(query(collection(ref, "updates"), orderBy("createdAt", "desc")));
+  return snapshot.docs.map((document) => toSubGoalUpdate(document.id, document.data()));
 }
