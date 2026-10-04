@@ -674,10 +674,14 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
 
 ## Phase 7 — 子目標完成、計量進度同大目標狀態
 
-- [ ] Task 28 — 勾選子目標完成／未完成。
+- [x] Task 28 — complete：勾選子目標完成／未完成。
   - 做：只改 checklist 子目標 isCompleted，同步 service／Rules；count 唔接受直接勾選。
   - 檔案：子目標 service、列表 UI、Rules 同測試。
   - 驗收：勾選 refresh 後保留；失敗回復提示，其他帳戶不可操作。
+  - 已實作（2026-10-04）：SubGoalList 顯示 checklist checkbox；setChecklistCompletion 用 transaction 只更新 isCompleted 同 updatedAt。Count 子目標唔顯示 checkbox。
+  - Rules：只接受本人 checklist 嘅 isCompleted／server updatedAt；userId、goalId、kind、進度、建立時間及其他欄位不可改。
+  - 自動驗收：新增 checklist toggle、count 禁止勾選、偽造身份／kind／進度／時間及跨帳戶更新測試；lint、typecheck、Webpack production build 通過。Firestore emulator 受目前環境 port／權限限制，新增 Rules 測試未能喺本機重跑。
+  - 手動驗收／理解確認（2026-10-04）：使用者確認勾選及取消勾選後 refresh 保留狀態；理解 count 由 currentValue >= targetValue 決定完成，transaction 讀取資料被修改時會重新讀取及檢查。上述 Rules 測試限制仍保留。
 
 - [ ] Task 29 — 計量子目標進度歷史。
   - 做：先用 +2 個單字解釋 transaction、history、currentValue 同重試；再分步加入 service／Rules、進度表單同 timeline。
@@ -735,4 +739,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 26a、26b、27 complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步等使用者指示，唔自動進入 Task 28。
+**Task 26a、26b、27、28 complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步 Task 29：計量子目標進度歷史，先拆細及講解，再實作；等使用者指示。

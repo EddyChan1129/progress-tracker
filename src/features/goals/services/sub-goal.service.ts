@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, runTransaction, serverTimestamp } from "firebase/firestore";
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { subGoalSchema, type SubGoalInput } from "../schemas/sub-goal.schema";
 import type { SubGoal } from "../types/sub-goal.types";
@@ -35,4 +35,20 @@ export async function getSubGoals(goalId: string): Promise<SubGoal[]> {
   const { ref } = await getSubGoalsCollection(goalId);
   const snapshot = await getDocs(query(ref, orderBy("createdAt", "asc")));
   return snapshot.docs.map((document) => toSubGoal(document.id, document.data()));
+}
+
+export async function setChecklistCompletion(goalId: string, subGoalId: string, isCompleted: boolean) {
+  const { userId, ref } = await getSubGoalsCollection(goalId);
+  if (!subGoalId.trim() || subGoalId !== subGoalId.trim() || subGoalId.includes("/") || [".", ".."].includes(subGoalId)) {
+    throw new Error("細目標不正確。");
+  }
+  const subGoal = doc(ref, subGoalId);
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(subGoal);
+    const data = snapshot.data();
+    if (!snapshot.exists() || !data || data.userId !== userId || data.goalId !== goalId || data.kind !== "checklist") {
+      throw new Error("搵唔到呢個勾選細目標。");
+    }
+    transaction.update(subGoal, { isCompleted, updatedAt: serverTimestamp() });
+  });
 }

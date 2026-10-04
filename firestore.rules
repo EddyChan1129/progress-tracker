@@ -173,6 +173,16 @@ service cloud.firestore {
             && (old.currentValue == 0 || !changed.hasAny(['targetValue', 'unit']))));
     }
 
+    function isValidChecklistCompletion(userId, goalId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.userId == userId && resource.data.goalId == goalId
+        && resource.data.kind == 'checklist'
+        && changed.hasOnly(['isCompleted', 'updatedAt'])
+        && data.isCompleted is bool
+        && data.updatedAt == request.time;
+    }
+
     match /users/{userId}/categories/{categoryId} {
       // 本人可以讀取自己路徑入面嘅分類。
       allow read: if isOwner(userId);
@@ -223,7 +233,7 @@ service cloud.firestore {
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)
           && isValidNewSubGoal(userId, goalId);
         allow update: if isOwner(userId) && hasOwnGoal(userId, goalId)
-          && isValidSubGoalUpdate(userId, goalId);
+          && (isValidSubGoalUpdate(userId, goalId) || isValidChecklistCompletion(userId, goalId));
         // 刪除同進度歷史留到之後嘅 task。
       }
     }

@@ -770,6 +770,31 @@ describe("subgoal Firestore rules", () => {
     assert.notEqual((await getDoc(doc(db, "users/alice/goals/sub-parent"))).data().title, "過期表單");
   });
 
+  it("allows only the owner to toggle checklist completion", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const checklist = doc(alice, "users/alice/goals/sub-parent/subGoals/toggle-checklist");
+    await assertSucceeds(setDoc(checklist, validSubGoal()));
+    await assertSucceeds(updateDoc(checklist, { isCompleted: true, updatedAt: serverTimestamp() }));
+    assert.equal((await getDoc(checklist)).data().isCompleted, true);
+    await assertSucceeds(updateDoc(checklist, { isCompleted: false, updatedAt: serverTimestamp() }));
+
+    for (const changes of [
+      { userId: "bob" }, { goalId: "other" }, { kind: "count" },
+      { currentValue: 1 }, { createdAt: Timestamp.fromMillis(1) },
+      { isCompleted: 1 }, { updatedAt: Timestamp.fromMillis(1) },
+    ]) await assertFails(updateDoc(checklist, { isCompleted: true, updatedAt: serverTimestamp(), ...changes }));
+    await assertFails(updateDoc(doc(testEnv.authenticatedContext("bob").firestore(), checklist.path), {
+      isCompleted: true, updatedAt: serverTimestamp(),
+    }));
+  });
+
+  it("rejects completion toggles on count subgoals", async () => {
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const count = doc(db, "users/alice/goals/sub-parent/subGoals/toggle-count");
+    await assertSucceeds(setDoc(count, validCountSubGoal()));
+    await assertFails(updateDoc(count, { isCompleted: true, updatedAt: serverTimestamp() }));
+  });
+
   it("keeps progress edits, deletion, history and another level of children closed", async () => {
     const db = testEnv.authenticatedContext("alice").firestore();
     const ref = doc(db, "users/alice/goals/sub-parent/subGoals/locked");
