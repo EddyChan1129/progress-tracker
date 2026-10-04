@@ -49,6 +49,7 @@ async function save(request: Request, editing: boolean) {
     const owner = db.collection("users").doc(userId);
     const entry = owner.collection("learningEntries").doc(entryId);
     const category = owner.collection("categories").doc(input.categoryId);
+    const relatedGoal = input.relatedGoalId ? owner.collection("goals").doc(input.relatedGoalId) : null;
     const receipt = owner.collection("mediaOperations").doc(operationId ?? `create-${entryId}`);
     const deletion = owner.collection("mediaOperations").doc(`delete-${entryId}`);
     const before = await entry.get();
@@ -61,24 +62,28 @@ async function save(request: Request, editing: boolean) {
     const refs = ids.map((id) => imageReference(userId, id));
 
     const result = await db.runTransaction(async (transaction) => {
-      const [current, categorySnapshot, previous, deleted, ...assets] = await transaction.getAll(entry, category, receipt, deletion, ...refs);
+      const [current, categorySnapshot, previous, deleted, ...dependencies] = await transaction.getAll(entry, category, receipt, deletion, ...(relatedGoal ? [relatedGoal] : []), ...refs);
+      const goalSnapshot = relatedGoal ? dependencies.shift() : undefined;
+      const assets = dependencies;
       if (deleted.exists) return "conflict";
       if (previous.exists) return previous.data()!.hash === hash && current.exists ? "saved" : "conflict";
       if (!categorySnapshot.exists || categorySnapshot.data()?.userId !== userId) return "category";
+      if (relatedGoal && (!goalSnapshot?.exists || goalSnapshot.data()?.userId !== userId)) return "goal";
       if (editing) {
         if (!current.exists || current.data()!.userId !== userId) return "missing";
         if (Math.floor(current.data()!.updatedAt.toMillis()) !== expectedUpdatedAt) return "conflict";
       } else if (current.exists) {
         const data = current.data()!;
         return data.userId === userId && data.title === input.title && data.content === input.content
-          && data.categoryId === input.categoryId && data.learnedAt.isEqual(learnedAt)
+          && data.categoryId === input.categoryId && data.relatedGoalId === input.relatedGoalId && data.learnedAt.isEqual(learnedAt)
           && Array.isArray(data.images) && data.images.length === images.length
           && images.every((image, i) => data.images[i].publicId === image.publicId && data.images[i].url === image.url) ? "saved" : "conflict";
       }
       if (assets.some((asset, i) => publicIds.includes(ids[i]) && ["deleting", "deleted", "uploading"].includes(asset.data()?.state))) return "conflict";
       // Admin SDK 繞過 Rules；只写目前登入 UID 路徑，自己驗證欄位／分類／版本。
       const data = { userId, title: input.title, content: input.content, categoryId: input.categoryId,
-        learnedAt, images, updatedAt: FieldValue.serverTimestamp() };
+        learnedAt, images, updatedAt: FieldValue.serverTimestamp(),
+        ...(input.relatedGoalId ? { relatedGoalId: input.relatedGoalId } : editing ? { relatedGoalId: FieldValue.delete() } : {}) };
       if (editing) transaction.update(entry, data);
       else transaction.create(entry, { ...data, createdAt: FieldValue.serverTimestamp() });
       transaction.create(receipt, { hash });
@@ -88,6 +93,7 @@ async function save(request: Request, editing: boolean) {
       return "saved";
     });
     if (result === "category") return Response.json({ error: "搵唔到本人嘅分類。" }, { status: 400 });
+    if (result === "goal") return Response.json({ error: "搵唔到本人嘅目標，請重新選擇。" }, { status: 400 });
     if (result === "missing") return Response.json({ error: "搵唔到呢筆記錄。" }, { status: 404 });
     if (result === "conflict") return Response.json({ error: "資料已改變或圖片正在清理，請返回列表重新開啟記錄。" }, { status: 409 });
     return Response.json({ id: entryId, ...await cleanupResult(userId) }, { headers: { "Cache-Control": "no-store" } });

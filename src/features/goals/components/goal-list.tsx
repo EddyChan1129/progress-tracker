@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
 import { GoalCard } from "@/features/goals/components/goal-card";
@@ -33,8 +34,11 @@ export function GoalList() {
 
   const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
   return (
-    <div className="mt-8 grid gap-4">
+    <div className="mt-7 space-y-4">
+      <p className="text-sm text-muted-foreground">共 {goals.length} 個大目標</p>
+      <ScrollPanel label="大目標列表"><div className="grid gap-4 xl:grid-cols-2">
       {goals.map((goal) => <GoalCard key={goal.id} goal={goal} categoryName={categoryNames.get(goal.categoryId) ?? "未知分類"} />)}
+      </div></ScrollPanel>
     </div>
   );
 }

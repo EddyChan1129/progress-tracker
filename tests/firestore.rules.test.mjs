@@ -89,6 +89,39 @@ function validLearningEntry(overrides = {}) {
   };
 }
 
+describe("learning goal references", () => {
+  it("allows owned goals, changing a reference and removing it", async () => {
+    await seedCategory("alice", "leetcode-entry");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      for (const id of ["linked-one", "linked-two"]) {
+        await setDoc(doc(context.firestore(), "users/alice/goals", id), { userId: "alice" });
+      }
+    });
+    const db = testEnv.authenticatedContext("alice").firestore();
+    const entry = doc(db, "users/alice/learningEntries/linked");
+    await assertSucceeds(setDoc(entry, validLearningEntry({ relatedGoalId: "linked-one" })));
+    await assertSucceeds(updateDoc(entry, { relatedGoalId: "linked-two", updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(entry, { relatedGoalId: deleteField(), updatedAt: serverTimestamp() }));
+    assert.equal("relatedGoalId" in (await getDoc(entry)).data(), false);
+  });
+
+  it("rejects missing, foreign, forged and malformed references", async () => {
+    await seedCategory("alice", "leetcode-entry");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/bob/goals/foreign"), { userId: "bob" });
+      await setDoc(doc(context.firestore(), "users/alice/goals/forged"), { userId: "bob" });
+    });
+    const db = testEnv.authenticatedContext("alice").firestore();
+    for (const [i, relatedGoalId] of ["missing", "foreign", "forged", "../bob", "", null].entries()) {
+      await assertFails(setDoc(doc(db, "users/alice/learningEntries", `bad-link-${i}`), validLearningEntry({ relatedGoalId })));
+    }
+    await seedLearningEntry("alice", "bad-update-link", "leetcode-entry");
+    const entry = doc(db, "users/alice/learningEntries/bad-update-link");
+    await assertFails(updateDoc(entry, { relatedGoalId: "foreign", updatedAt: serverTimestamp() }));
+    assert.equal("relatedGoalId" in (await getDoc(entry)).data(), false);
+  });
+});
+
 describe("deny-by-default Firestore rules", () => {
   it("reject unauthenticated reads and writes", async () => {
     // 模擬一個完全未登入嘅 browser。

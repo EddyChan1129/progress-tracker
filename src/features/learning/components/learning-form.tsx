@@ -8,6 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { toDateInputValue } from "@/lib/date-input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
@@ -17,10 +18,9 @@ import {
   learningEntrySchema,
   type LearningEntryInput,
 } from "@/features/learning/schemas/learning.schema";
-import {
-  createLearningEntry,
-  getLearningEntry,
-} from "@/features/learning/services/learning.service";
+import { getLearningEntry } from "@/features/learning/services/learning.service";
+import { getGoals } from "@/features/goals/services/goal.service";
+import type { Goal } from "@/features/goals/types/goal.types";
 
 import { saveLearningEntryWithImages, cleanupLearningImages, type ImageSaveAttempt } from "@/features/learning/services/learning-image.service";
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
@@ -38,6 +38,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -58,6 +59,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
       title: "",
       content: "",
       categoryId: "",
+      relatedGoalId: "",
       learnedAt: getToday(),
     },
   });
@@ -69,11 +71,13 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     Promise.all([
       getCategories(),
       entryId ? getLearningEntry(entryId) : Promise.resolve(null),
+      getGoals(),
     ])
-      .then(([categoryResult, entry]) => {
+      .then(([categoryResult, entry, goalResult]) => {
         if (!isCurrent) return;
 
         setCategories(categoryResult);
+        setGoals(goalResult);
 
         if (entryId && !entry) {
           setLoadError("搵唔到呢筆學習記錄。");
@@ -87,6 +91,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
             title: entry.title,
             content: entry.content,
             categoryId: entry.categoryId,
+            relatedGoalId: entry.relatedGoalId ?? "",
             learnedAt: toDateInputValue(entry.learnedAt),
           });
         }
@@ -107,7 +112,6 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     setSuccessMessage("");
 
     try {
-      if (entryId || imageFiles.length > 0) {
         imageAttempt.current ??= {
           id: entryId ?? crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map(),
           ...(entryId ? {
@@ -127,17 +131,16 @@ export function LearningForm({ entryId }: { entryId?: string }) {
           return;
         }
         setSuccessMessage(result.cleanupPending ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。" : "學習記錄已新增。");
-      } else {
-        await createLearningEntry(input);
-        setSuccessMessage("學習記錄已新增。");
-      }
       reset({
         title: "",
         content: "",
         categoryId: "",
+        relatedGoalId: "",
         learnedAt: getToday(),
       });
     } catch (error) {
+      // 400 已確認冇儲存，容許修正輸入；未知結果繼續鎖住並重試原操作。
+      if (error instanceof Error && "status" in error && error.status === 400) setImageRetryPending(false);
       setError("root", {
         message: error instanceof Error ? error.message : "儲存失敗，請再試一次。",
       });
@@ -189,7 +192,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
 
   return (
     <form
-      className="mt-8 max-w-2xl space-y-5 rounded-xl border bg-card p-6"
+      className="mt-7 max-w-3xl space-y-5 rounded-2xl border bg-card p-4 sm:p-7"
       noValidate
       onSubmit={(event) => { void handleSubmit(onSubmit)(event); }}
     >
@@ -222,7 +225,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
               errors.content ? "learning-content-error" : undefined
             }
             aria-invalid={Boolean(errors.content)}
-            className="min-h-40 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+            className="h-52 min-h-40 max-h-96 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
             id="learning-content"
             placeholder={"例如：\n\n```js\nconst seen = new Map();\n```"}
             {...register("content")}
@@ -239,9 +242,9 @@ export function LearningForm({ entryId }: { entryId?: string }) {
             <h2 className="text-sm font-medium" id="learning-preview-heading">
               預覽
             </h2>
-            <div className="rounded-lg border bg-background p-4">
+            <ScrollPanel label="學習內容預覽" className="max-h-64 rounded-lg border bg-background p-4">
               <MarkdownContent content={content} />
-            </div>
+            </ScrollPanel>
           </section>
         ) : null}
 
@@ -271,6 +274,17 @@ export function LearningForm({ entryId }: { entryId?: string }) {
               {errors.categoryId.message}
             </p>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor="learning-goal">關聯大目標（可選）</label>
+          <select id="learning-goal" className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            aria-invalid={Boolean(errors.relatedGoalId)} aria-describedby={errors.relatedGoalId ? "learning-goal-error" : "learning-goal-hint"} {...register("relatedGoalId")}>
+            <option value="">不關聯目標</option>
+            {goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}
+          </select>
+          <p id="learning-goal-hint" className="text-xs leading-5 text-muted-foreground">將呢次學習連結到一個目標；細目標進度需要另外更新。</p>
+          {errors.relatedGoalId ? <p id="learning-goal-error" className="text-sm text-destructive">{errors.relatedGoalId.message}</p> : null}
         </div>
 
         <div className="space-y-2">

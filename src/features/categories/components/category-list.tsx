@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
@@ -30,7 +31,7 @@ export function CategoryList() {
   }, []);
 
   return (
-    <section aria-labelledby="category-list-heading" className="mt-10 max-w-2xl">
+    <section aria-labelledby="category-list-heading" className="mt-7 min-w-0 rounded-2xl border bg-card p-4 sm:p-6">
       <h2 className="text-xl font-semibold" id="category-list-heading">
         你的分類
       </h2>
@@ -52,7 +53,7 @@ export function CategoryList() {
       ) : null}
 
       {categories.length > 0 ? (
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        <ScrollPanel label="分類列表" className="mt-4"><ul className="grid gap-3 sm:grid-cols-2">
           {categories.map((category) => (
             <li
               className="flex items-center gap-3 rounded-lg border bg-card p-4"
@@ -61,10 +62,10 @@ export function CategoryList() {
               <span aria-hidden className="text-xl">
                 {category.icon ?? "📁"}
               </span>
-              <span className="font-medium">{category.name}</span>
+              <span className="min-w-0 font-medium">{category.name}</span>
             </li>
           ))}
-        </ul>
+        </ul></ScrollPanel>
       ) : null}
     </section>
   );

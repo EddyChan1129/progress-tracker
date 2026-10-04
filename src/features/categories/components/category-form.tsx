@@ -40,7 +40,7 @@ export function CategoryForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form
-      className="mt-8 max-w-lg space-y-5 rounded-xl border bg-card p-6"
+      className="mt-7 min-w-0 space-y-5 rounded-2xl border bg-card p-4 sm:p-6"
       noValidate
       onSubmit={handleSubmit(onSubmit)}
     >

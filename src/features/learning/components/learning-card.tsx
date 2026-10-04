@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { LearningImages } from "@/features/learning/components/learning-images";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
 import { deleteLearningEntry } from "@/features/learning/services/learning.service";
@@ -18,10 +19,12 @@ const dateFormatter = new Intl.DateTimeFormat("zh-HK", {
 export function LearningCard({
   entry,
   categoryName,
+  goalTitle,
   onDeleted,
 }: {
   entry: LearningEntry;
   categoryName: string;
+  goalTitle?: string;
   onDeleted: (entryId: string) => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -46,11 +49,11 @@ export function LearningCard({
   }
 
   return (
-    <article className="rounded-xl border bg-card p-5">
+    <article className="min-w-0 rounded-xl border bg-card p-4 sm:p-6">
       <h2 className="text-lg font-semibold">{entry.title}</h2>
-      <div className="mt-3">
+      <ScrollPanel label={`「${entry.title}」學習內容`} className="mt-3 max-h-64">
         <MarkdownContent content={entry.content} />
-      </div>
+      </ScrollPanel>
       <LearningImages images={entry.images} />
       <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
         <div className="flex gap-2">
@@ -64,6 +67,7 @@ export function LearningCard({
           </dd>
         </div>
       </dl>
+      {entry.relatedGoalId ? <Link href={`/goals/${entry.relatedGoalId}`} className="mt-3 block rounded text-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring">關聯目標：{goalTitle ?? "查看目標"}</Link> : null}
       <Button asChild className="mt-4" size="sm" variant="outline">
         <Link href={`/learning/${entry.id}/edit`}>編輯</Link>
       </Button>

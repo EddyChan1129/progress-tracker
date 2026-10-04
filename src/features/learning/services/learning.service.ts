@@ -1,6 +1,5 @@
 import { learningMediaRequest } from "./learning-image.service";
 import {
-  addDoc,
   collection,
   doc,
   type DocumentData,
@@ -8,16 +7,10 @@ import {
   getDocs,
   orderBy,
   query,
-  serverTimestamp,
   Timestamp,
-  updateDoc,
 } from "firebase/firestore";
 
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
-import {
-  learningEntrySchema,
-  type LearningEntryInput,
-} from "@/features/learning/schemas/learning.schema";
 import type { LearningEntry } from "@/features/learning/types/learning.types";
 import { db } from "@/lib/firebase/client";
 
@@ -48,27 +41,6 @@ function toLearningEntry(id: string, data: DocumentData): LearningEntry {
   };
 }
 
-export async function createLearningEntry(input: LearningEntryInput) {
-  const userId = getCurrentUserId();
-  const { title, content, categoryId, learnedAt } =
-    learningEntrySchema.parse(input);
-  const entryReference = await addDoc(
-    collection(db, "users", userId, "learningEntries"),
-    {
-      userId,
-      title,
-      content,
-      categoryId,
-      images: [],
-      learnedAt: Timestamp.fromDate(learnedAt),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-  );
-
-  return entryReference.id;
-}
-
 export async function getLearningEntries(): Promise<LearningEntry[]> {
   const userId = getCurrentUserId();
   const entryQuery = query(
@@ -94,21 +66,4 @@ export async function getLearningEntry(
   return snapshot.exists()
     ? toLearningEntry(snapshot.id, snapshot.data())
     : null;
-}
-
-export async function updateLearningEntry(
-  entryId: string,
-  input: LearningEntryInput,
-) {
-  const userId = getCurrentUserId();
-  const { title, content, categoryId, learnedAt } =
-    learningEntrySchema.parse(input);
-
-  await updateDoc(doc(db, "users", userId, "learningEntries", entryId), {
-    title,
-    content,
-    categoryId,
-    learnedAt: Timestamp.fromDate(learnedAt),
-    updatedAt: serverTimestamp(),
-  });
 }

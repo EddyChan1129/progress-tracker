@@ -10,6 +10,8 @@ export const learningEntrySchema = z.object({
     .string()
     .refine((value) => value.trim().length > 0, "請輸入學習內容。"),
   categoryId: z.string().trim().min(1, "請選擇分類。"),
+  relatedGoalId: z.string().trim().regex(/^(?:[A-Za-z0-9_-]{1,100})?$/, "請選擇有效目標。")
+    .optional().transform((value) => value || undefined),
   learnedAt: z.iso.date("請選擇有效日期。").transform((value) => {
     const [year, month, day] = value.split("-").map(Number);
 

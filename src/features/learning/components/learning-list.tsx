@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
+import { getGoals } from "@/features/goals/services/goal.service";
+import type { Goal } from "@/features/goals/types/goal.types";
 
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
@@ -13,18 +16,20 @@ export function LearningList() {
   const [cleanupVersion, setCleanupVersion] = useState(0);
   const [entries, setEntries] = useState<LearningEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let isCurrent = true;
 
-    Promise.all([getLearningEntries(), getCategories()])
-      .then(([entryResult, categoryResult]) => {
+    Promise.all([getLearningEntries(), getCategories(), getGoals()])
+      .then(([entryResult, categoryResult, goalResult]) => {
         if (!isCurrent) return;
 
         setEntries(entryResult);
         setCategories(categoryResult);
+        setGoals(goalResult);
       })
       .catch(() => {
         if (isCurrent) {
@@ -63,14 +68,18 @@ export function LearningList() {
   const categoryNames = new Map(
     categories.map((category) => [category.id, category.name]),
   );
+  const goalNames = new Map(goals.map((goal) => [goal.id, goal.title]));
 
   return (
-    <div className="mt-8 grid gap-4">
+    <div className="mt-7 space-y-4">
       <ImageCleanupStatus key={cleanupVersion} />
+      <p className="text-sm text-muted-foreground">共 {entries.length} 筆記錄</p>
+      <ScrollPanel label="學習記錄列表"><div className="grid gap-4">
       {entries.map((entry) => (
         <LearningCard
           categoryName={categoryNames.get(entry.categoryId) ?? "未知分類"}
           entry={entry}
+          goalTitle={entry.relatedGoalId ? goalNames.get(entry.relatedGoalId) : undefined}
           key={entry.id}
           onDeleted={(deletedId) => {
             setCleanupVersion((version) => version + 1);
@@ -80,6 +89,7 @@ export function LearningList() {
           }}
         />
       ))}
+      </div></ScrollPanel>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { subGoalProgressSchema, type SubGoalProgressInput } from "../schemas/sub-goal-progress.schema";
 import { addSubGoalProgress, getSubGoalUpdates } from "../services/sub-goal.service";
 import type { CountSubGoal, SubGoalUpdate } from "../types/sub-goal.types";
@@ -88,13 +89,13 @@ export function SubGoalProgress({ subGoal, onSaved }: {
         {historyError ? <div className="mt-2 space-y-2"><p role="alert" className="text-sm text-destructive">{historyError}</p>
           <Button type="button" variant="outline" onClick={() => { setIsLoading(true); setVersion((current) => current + 1); }}>重試載入</Button></div> : null}
         {!isLoading && !historyError && history.length === 0 ? <p role="status" className="mt-2 text-sm text-muted-foreground">未有進度歷史。</p> : null}
-        <ol aria-label={`「${subGoal.title}」進度歷史`} className="mt-2 space-y-2">
+        <ScrollPanel label={`「${subGoal.title}」進度歷史`} className="mt-2 max-h-60"><ol className="space-y-2">
           {history.map((update) => <li key={update.id} className="rounded-lg border p-3 text-sm">
             <p>+{update.progressDelta} {subGoal.unit} · {update.previousValue} → {update.currentValue}</p>
             <time className="text-muted-foreground" dateTime={update.createdAt.toISOString()}>{update.createdAt.toLocaleString("zh-HK")}</time>
             {update.note ? <p className="mt-1 whitespace-pre-wrap break-words">{update.note}</p> : null}
           </li>)}
-        </ol>
+        </ol></ScrollPanel>
       </details>
     </div>
   );

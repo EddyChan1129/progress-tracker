@@ -1,10 +1,11 @@
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { browserLocalPersistence, GoogleAuthProvider, setPersistence, signInWithPopup, signOut } from "firebase/auth";
 
 import { auth } from "@/lib/firebase/client";
 
 const googleProvider = new GoogleAuthProvider();
 
-export function signInWithGoogle() {
+export async function signInWithGoogle() {
+  await setPersistence(auth, browserLocalPersistence);
   return signInWithPopup(auth, googleProvider);
 }
 

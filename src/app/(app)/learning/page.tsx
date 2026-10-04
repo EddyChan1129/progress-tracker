@@ -2,15 +2,13 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { LearningList } from "@/features/learning/components/learning-list";
+import { PageHeader } from "@/components/layout/page-header";
+import { Plus } from "lucide-react";
 
 export default function LearningPage() {
   return (
     <section>
-      <h1 className="text-3xl font-semibold tracking-tight">學習記錄</h1>
-      <p className="mt-4 text-muted-foreground">之後會喺呢度查看學習記錄。</p>
-      <Button asChild className="mt-6">
-        <Link href="/learning/new">新增學習記錄</Link>
-      </Button>
+      <PageHeader title="學習記錄" description="保存練習、筆記同程式碼，回頭睇見自己嘅累積。" action={<Button asChild><Link href="/learning/new"><Plus aria-hidden size={17} />新增學習記錄</Link></Button>} />
       <LearningList />
     </section>
   );

@@ -25,10 +25,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[15rem_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <a href="#main-content" className="sr-only z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3">跳到主要內容</a>
       <AppNavigation />
-      <main className="min-w-0 px-6 py-10 sm:px-10 md:py-12">
-        <div className="mx-auto max-w-4xl">{children}</div>
+      <main id="main-content" className="min-w-0 px-4 py-7 sm:px-8 sm:py-10 lg:px-10 xl:px-14">
+        <div key={user.uid} className="mx-auto max-w-6xl">{children}</div>
       </main>
     </div>
   );

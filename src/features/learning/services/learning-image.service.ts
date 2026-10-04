@@ -37,7 +37,7 @@ export async function saveLearningEntryWithImages(
       method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error ?? "圖片上傳失敗，請再試。");
+    if (!response.ok) throw Object.assign(new Error(result.error ?? "圖片上傳失敗，請再試。"), { status: response.status });
     attempt.uploads.set(file, result.publicId);
   }
 
@@ -52,7 +52,7 @@ export async function saveLearningEntryWithImages(
     }),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error ?? "儲存失敗，請再試。");
+  if (!response.ok) throw Object.assign(new Error(result.error ?? "儲存失敗，請再試。"), { status: response.status });
   return result as { id: string; cleanupPending: boolean };
 }
 

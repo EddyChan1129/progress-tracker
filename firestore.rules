@@ -51,7 +51,8 @@ service cloud.firestore {
           'images',
           'learnedAt',
           'createdAt',
-          'updatedAt'
+          'updatedAt',
+          'relatedGoalId'
         ])
         && data.userId is string
         && data.userId == userId
@@ -68,6 +69,10 @@ service cloud.firestore {
         && data.learnedAt is timestamp
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
+        && (!('relatedGoalId' in data) || (data.relatedGoalId is string
+          && data.relatedGoalId.matches('^[A-Za-z0-9_-]{1,100}$')
+          && exists(/databases/$(database)/documents/users/$(userId)/goals/$(data.relatedGoalId))
+          && get(/databases/$(database)/documents/users/$(userId)/goals/$(data.relatedGoalId)).data.userId == userId))
         && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId));
     }
 

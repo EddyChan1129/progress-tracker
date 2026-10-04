@@ -8,6 +8,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { toDateInputValue } from "@/lib/date-input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
@@ -97,7 +98,7 @@ export function GoalForm({ goalId }: { goalId?: string }) {
   }
 
   return (
-    <form className="mt-8 max-w-2xl space-y-5 rounded-xl border bg-card p-6" noValidate onSubmit={handleSubmit(onSubmit)}>
+    <form className="mt-7 max-w-3xl space-y-5 rounded-2xl border bg-card p-4 sm:p-7" noValidate onSubmit={handleSubmit(onSubmit)}>
       <fieldset disabled={isSubmitting} className="space-y-5">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="goal-title">標題</label>
@@ -148,7 +149,7 @@ export function GoalForm({ goalId }: { goalId?: string }) {
         <section className="space-y-4 border-t pt-5" aria-labelledby="new-sub-goals-heading">
           <h2 id="new-sub-goals-heading" className="text-lg font-semibold">細目標（可選）</h2>
           <p className="text-sm text-muted-foreground">大目標同細目標會一齊儲存；新加入嘅細目標可以先移除。</p>
-          {fields.map((field, index) => (
+          {fields.length ? <ScrollPanel label="編輯細目標" className="max-h-[28rem]"><div className="space-y-4">{fields.map((field, index) => (
             <div key={field.id} className="space-y-4 rounded-xl border p-4">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-medium">細目標 {index + 1}</h3>
@@ -157,7 +158,7 @@ export function GoalForm({ goalId }: { goalId?: string }) {
               <SubGoalFields index={index} existing={existingSubGoals[index]} control={control} register={register} formState={formState}
                 getFieldState={getFieldState} setValue={setValue} unregister={unregister} />
             </div>
-          ))}
+          ))}</div></ScrollPanel> : null}
           <Button type="button" variant="outline" onClick={() => append({ kind: "checklist", title: "", description: "" })}>加入細目標</Button>
         </section>
         <div className="flex flex-wrap gap-3">

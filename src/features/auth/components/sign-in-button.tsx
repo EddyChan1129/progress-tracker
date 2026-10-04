@@ -39,7 +39,7 @@ export function SignInButton() {
 
   return (
     <div className="mt-6">
-      <Button disabled={isLoading} onClick={handleSignIn} type="button">
+      <Button className="h-12 w-full text-base" disabled={isLoading} onClick={handleSignIn} type="button">
         {isLoading ? "登入中…" : "使用 Google 登入"}
       </Button>
       {errorMessage && (

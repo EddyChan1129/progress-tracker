@@ -11,6 +11,13 @@ const validEntry = {
 };
 
 describe("learningEntrySchema", () => {
+  it("accepts an optional goal and rejects invalid document paths", () => {
+    assert.equal(learningEntrySchema.parse({ ...validEntry, relatedGoalId: "" }).relatedGoalId, undefined);
+    assert.equal(learningEntrySchema.parse({ ...validEntry, relatedGoalId: "goal-1" }).relatedGoalId, "goal-1");
+    for (const relatedGoalId of ["../bob", "goals/other", ".", "..", "a".repeat(101), null]) {
+      assert.equal(learningEntrySchema.safeParse({ ...validEntry, relatedGoalId }).success, false);
+    }
+  });
   it("accepts valid input and converts the date", () => {
     const result = learningEntrySchema.safeParse(validEntry);
 

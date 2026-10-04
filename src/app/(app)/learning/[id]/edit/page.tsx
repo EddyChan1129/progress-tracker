@@ -1,4 +1,5 @@
 import { LearningForm } from "@/features/learning/components/learning-form";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default async function EditLearningEntryPage({
   params,
@@ -9,9 +10,8 @@ export default async function EditLearningEntryPage({
 
   return (
     <section>
-      <h1 className="text-3xl font-semibold tracking-tight">編輯學習記錄</h1>
-      <p className="mt-4 text-muted-foreground">修改已儲存嘅學習內容。</p>
-      <LearningForm entryId={id} />
+      <PageHeader title="編輯學習記錄" description="補充學習內容，或者整理圖片同關聯目標。" />
+      <LearningForm key={id} entryId={id} />
     </section>
   );
 }

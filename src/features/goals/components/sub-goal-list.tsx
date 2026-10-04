@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { getSubGoals, setChecklistCompletion } from "../services/sub-goal.service";
 import type { SubGoal } from "../types/sub-goal.types";
 import { SubGoalProgress } from "./sub-goal-progress";
@@ -43,12 +44,12 @@ export function SubGoalList({ goalId }: { goalId: string }) {
   return (
     <div className="space-y-3">
     {errorMessage ? <p className="text-sm text-destructive" role="alert">{errorMessage}</p> : null}
-    <ul className="space-y-3" aria-label="細目標列表">
+    <ScrollPanel label="細目標列表"><ul className="space-y-3">
       {subGoals.map((subGoal) => (
         <li key={subGoal.id} className="min-w-0 space-y-2 rounded-xl border bg-card p-5">
           <div className="flex items-start gap-3">
             {subGoal.kind === "checklist" ? (
-              <input aria-label={`標記「${subGoal.title}」完成`} checked={subGoal.isCompleted}
+              <input className="mt-1 size-5 shrink-0 accent-primary" aria-label={`標記「${subGoal.title}」完成`} checked={subGoal.isCompleted}
                 disabled={Boolean(updatingId)} onChange={(event) => handleChecklistChange(subGoal, event.target.checked)} type="checkbox" />
             ) : null}
             <h3 className="break-words font-semibold">{subGoal.title}</h3>
@@ -65,7 +66,7 @@ export function SubGoalList({ goalId }: { goalId: string }) {
           }} /> : null}
         </li>
       ))}
-    </ul>
+    </ul></ScrollPanel>
     </div>
   );
 }
