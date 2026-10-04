@@ -9,6 +9,7 @@ import { GoalCard } from "@/features/goals/components/goal-card";
 import { deleteGoal, getGoal } from "@/features/goals/services/goal.service";
 import type { Goal } from "@/features/goals/types/goal.types";
 import { SubGoalList } from "./sub-goal-list";
+import { GoalStatusActions } from "./goal-status-actions";
 
 export function GoalDetail({ goalId }: { goalId: string }) {
   const router = useRouter();
@@ -54,6 +55,9 @@ export function GoalDetail({ goalId }: { goalId: string }) {
         : goal ? (
           <>
             <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
+            <GoalStatusActions key={goal.id} goal={goal} disabled={isDeleting} onChanged={(status) => {
+              setGoal((current) => current ? { ...current, status } : current);
+            }} />
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button>
               <Button disabled={isDeleting} onClick={handleDelete} type="button" variant="destructive">

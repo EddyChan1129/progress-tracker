@@ -15,8 +15,9 @@ import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { auth } from "@/lib/firebase/client";
 import { goalCreationSchema, type GoalCreationInput } from "@/features/goals/schemas/goal.schema";
 import { db } from "@/lib/firebase/client";
-import type { Goal } from "@/features/goals/types/goal.types";
+import type { Goal, GoalStatus } from "@/features/goals/types/goal.types";
 import { toGoal } from "./goal-data";
+import { commitGoalStatus } from "./goal-status";
 
 export async function getGoals(): Promise<Goal[]> {
   const userId = getCurrentUserId();
@@ -31,6 +32,14 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
   const userId = getCurrentUserId();
   const snapshot = await getDoc(doc(db, "users", userId, "goals", goalId));
   return snapshot.exists() ? toGoal(snapshot.id, snapshot.data()) : null;
+}
+
+export async function setGoalStatus(goalId: string, status: GoalStatus, expectedStatus: GoalStatus) {
+  const userId = getCurrentUserId();
+  if (!goalId.trim() || goalId !== goalId.trim() || goalId.includes("/") || [".", ".."].includes(goalId)) {
+    throw new Error("目標不正確。");
+  }
+  return commitGoalStatus(doc(db, "users", userId, "goals", goalId), userId, status, expectedStatus);
 }
 
 export async function deleteGoal(goalId: string) {

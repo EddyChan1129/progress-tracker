@@ -1,4 +1,4 @@
-// 限定狀態名稱；實際狀態轉換會由之後嘅 service／Rules 驗證。
+// 限定狀態名稱；狀態轉換由 service／Rules 驗證。
 export type GoalStatus = "not_started" | "in_progress" | "completed" | "paused";
 
 // 大目標例如「成為冷氣師傅」；數量／單位留畀之後嘅子目標。

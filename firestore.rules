@@ -111,6 +111,16 @@ service cloud.firestore {
         && data.createdAt == request.time && data.updatedAt == request.time;
     }
 
+    function isValidGoalStatusChange() {
+      let old = resource.data.status;
+      let next = request.resource.data.status;
+      // 狀態操作唔可以順便修改身份、日期、文字或細目標資料。
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && ((old == 'not_started' && next == 'in_progress')
+          || (old == 'in_progress' && next in ['paused', 'completed'])
+          || (old == 'paused' && next == 'in_progress'));
+    }
+
     // 子目標唔可以懸空；parent 路徑同欄位擁有者都要正確。
     function hasOwnGoal(userId, goalId) {
       return exists(/databases/$(database)/documents/users/$(userId)/goals/$(goalId))
@@ -248,10 +258,10 @@ service cloud.firestore {
       allow update: if isOwner(userId) && resource.data.userId == userId
         && isValidGoal(userId)
         // affectedKeys 包括新增、修改及刪除嘅欄位；只准改以下幾個。
-        // 因此 userId、createdAt、status 同舊計量欄位一律保留原值。
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        // 編輯保留 status；另一個分支只接受明確、合法嘅狀態操作。
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title', 'description', 'categoryId', 'startDate', 'targetDate', 'updatedAt'
-        ])
+        ]) || isValidGoalStatusChange())
         && request.resource.data.updatedAt == request.time;
       // Client 直接 delete 一律拒絕；Task 27 由 server 驗證冇細目標／關聯後刪除。
       // 目的係防止繞過 UI，將有關聯資料嘅 parent 留低孤兒資料。

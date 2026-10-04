@@ -708,6 +708,11 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 做：使用者明確操作大目標 status，service／Rules 限制合法轉換；子目標完成數唔自動等於大目標 completed。
   - 檔案：goal service、狀態 UI、Rules 同測試。
   - 驗收：全部子目標完成仍由使用者判斷大目標完成，非法狀態轉換被拒。
+  - 已實作（2026-10-04）：詳情頁加入 GoalStatusActions；未開始 → 進行中、進行中 → 暫停／完成、暫停 → 進行中。已完成係本次流程終點，唔提供重新開啟。
+  - setGoalStatus 從登入狀態取 UID；commitGoalStatus transaction 讀取最新狀態，驗證所有權及合法轉換，過期頁面唔覆蓋新狀態。同一狀態重試唔再次寫入，成功先更新畫面；提交中禁用按鈕，失敗保留目前顯示並提示。
+  - Rules 獨立限制合法狀態轉換，狀態操作只准改 status／server updatedAt；唔可順便改文字、日期、身份或其他欄位。大目標狀態唔由細目標完成數自動推算，唔修改細目標進度／歷史。
+  - 自動驗收：Rules／transaction 回歸 60 個測試、lint、typecheck、Webpack production build 通過；包括全部狀態組合、跨帳戶、偽造欄位、過期／並行操作、重試、細目標完成唔自動完成 parent 同保留歷史。可用 npm run test:goal-status 重跑新增測試。
+  - 待使用者手動驗收：部署 Rules；開始 → 暫停 → 恢復 → 完成，每步 refresh 保留狀態；細目標進度／歷史保持原值，全部細目標完成時大目標仍要自行按完成。
 
 - [ ] Task 31 — Learning Entry 關聯大目標。
   - 做：LearningForm 可選本人目標；service／Rules 驗證關聯，維護 Task 27 刪除保護；唔自動增加子目標進度。
@@ -755,4 +760,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 29 complete，自動檢查及使用者三項手動驗收通過。** 下一步係 Task 30：大目標開始／完成／暫停／恢復；等使用者指示先開始。
+**Task 30 程式已實作，等待使用者部署 Rules 同手動驗收。** 唔連接 browser，唔自動開始 Task 31。

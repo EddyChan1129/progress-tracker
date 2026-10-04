@@ -16,6 +16,7 @@
     "test:goals": "node --test tests/goal-data.test.mts tests/sub-goal-data.test.mts",
     "test:rules": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --test tests/firestore.rules.test.mjs\"",
     "test:progress": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --test tests/sub-goal-progress.test.mts\"",
+    "test:goal-status": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --test tests/goal-status.test.mts\"",
     "typecheck": "next typegen && tsc --noEmit",
     "test:image-lifecycle": "firebase emulators:exec --only firestore --project demo-progress-tracker \"node --conditions=react-server --test tests/learning-image-lifecycle.test.mts\""
   },
