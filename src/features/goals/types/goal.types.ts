@@ -14,4 +14,5 @@ export interface Goal {
   status: GoalStatus;
   createdAt: Date;
   updatedAt: Date;
+  deleting?: boolean;
 }

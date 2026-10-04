@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, House, Layers, NotebookPen, Target } from "lucide-react";
+import { House, Layers, NotebookPen, Target } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 import { SignOutButton } from "@/features/auth/components/sign-out-button";
 import { useAuth } from "@/features/auth/components/auth-provider";
@@ -25,8 +26,7 @@ export function AppNavigation() {
         className="flex min-w-0 items-center gap-3 rounded-md text-lg font-semibold tracking-tight text-[#173c65] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         href="/dashboard"
       >
-        <BookOpenCheck aria-hidden size={26} />
-        學習追蹤
+        <BrandLogo />
       </Link>
       <div className="lg:hidden"><SignOutButton /></div>
       </div>

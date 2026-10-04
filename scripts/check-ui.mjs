@@ -90,6 +90,8 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await signIn(page, email);
   await page.getByRole("link", { name: "改善英文 speaking", exact: true }).waitFor();
+  assert.equal(await page.locator('img[src="/brand/logo.svg"]').evaluate((image) => image.complete && image.naturalWidth > 0), true);
+  assert.ok(await page.locator('link[rel="icon"]').getAttribute("href").then((href) => href.includes("/brand/logo.svg")));
   await page.screenshot({ path: join(output, "desktop.png"), fullPage: true });
   for (const width of [320, 375, 768, 1440]) await assertFits(page, width);
   await page.setViewportSize({ width: 375, height: 812 });
@@ -148,6 +150,49 @@ try {
   await page.goto(`${baseUrl}/categories`);
   await page.getByRole("region", { name: "分類列表" }).waitFor();
   await assertFits(page, 320);
+  // Dialogs and deletion only affect the emulator fixtures created above.
+  async function confirmClick(button, expectedText, accept = true) {
+    const shown = page.waitForEvent("dialog");
+    const clicked = button.click();
+    const dialog = await shown;
+    assert.ok(dialog.message().includes(expectedText));
+    if (accept) await dialog.accept(); else await dialog.dismiss();
+    await clicked;
+  }
+  await confirmClick(page.getByRole("button", { name: "刪除分類「學習方向 10」", exact: true }), "無法復原", false);
+  assert.equal((await owner.collection("categories").doc("category-10").get()).exists, true);
+  await confirmClick(page.getByRole("button", { name: "刪除分類「學習方向 11」", exact: true }), "無法復原");
+  await page.getByRole("button", { name: "刪除分類「學習方向 11」", exact: true }).waitFor({ state: "detached" });
+  assert.equal((await owner.collection("categories").doc("category-11").get()).exists, false);
+  await confirmClick(page.getByRole("button", { name: "刪除分類「英文與職業技能」", exact: true }), "無法復原");
+  await page.getByText("呢個分類仍有學習記錄或目標使用，請先將佢哋轉到其他分類。", { exact: true }).waitFor();
+  assert.equal((await owner.collection("categories").doc("category-0").get()).exists, true);
+  const parent = owner.collection("goals").doc("goal-0");
+  const count = parent.collection("subGoals").doc("delete-count");
+  await count.set({ userId: uid, goalId: parent.id, title: "可刪除計量細目標", kind: "count", targetValue: 10, currentValue: 2, unit: "次", createdAt: now, updatedAt: now });
+  const history = count.collection("updates").doc("one");
+  await history.set({ userId: uid, goalId: parent.id, subGoalId: count.id, progressDelta: 2, previousValue: 0, currentValue: 2, createdAt: now });
+  await page.goto(`${baseUrl}/goals/goal-0`);
+  await page.getByRole("button", { name: "刪除細目標「可刪除計量細目標」", exact: true }).waitFor();
+  await assertFits(page, 320);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: join(output, "goal-deletion.png"), fullPage: true });
+  await confirmClick(page.getByRole("button", { name: "刪除細目標「可刪除計量細目標」", exact: true }), "進度歷史");
+  await page.getByRole("heading", { name: "可刪除計量細目標", exact: true }).waitFor({ state: "detached" });
+  assert.equal((await history.get()).exists, false);
+  assert.equal((await parent.get()).exists, true);
+  await confirmClick(page.getByRole("button", { name: "刪除細目標「練習細步驟 1」", exact: true }), "大目標及其他細目標會保留");
+  await page.getByRole("heading", { name: "練習細步驟 1", exact: true }).waitFor({ state: "detached" });
+  assert.equal((await parent.collection("subGoals").get()).size, 19);
+  await confirmClick(page.getByRole("button", { name: "刪除目標", exact: true }), "旗下所有細目標", false);
+  assert.equal((await parent.get()).exists, true);
+  await confirmClick(page.getByRole("button", { name: "刪除目標", exact: true }), "學習記錄會保留");
+  await page.waitForURL("**/goals");
+  assert.equal((await parent.get()).exists, false);
+  assert.equal((await parent.collection("subGoals").get()).size, 0);
+  const retainedNotes = await owner.collection("learningEntries").get();
+  assert.equal(retainedNotes.size, 25);
+  assert.ok(retainedNotes.docs.every((note) => !note.data().relatedGoalId));
   await context.close();
   context = await chromium.launchPersistentContext(profile, { headless: true, ignoreDefaultArgs: ["--hide-scrollbars"], timezoneId: "Asia/Hong_Kong" });
   page = context.pages()[0];
@@ -159,6 +204,8 @@ try {
   }
   await page.getByRole("button", { name: "登出", exact: true }).filter({ visible: true }).click();
   await page.waitForURL("**/login");
+  await page.getByRole("button", { name: "使用 Google 登入" }).waitFor();
+  await page.screenshot({ path: join(output, "login-brand.png"), fullPage: true });
   await page.goto(`${baseUrl}/goals`);
   await page.waitForURL("**/login");
   await signIn(page, bobEmail);
@@ -166,7 +213,7 @@ try {
   assert.equal(await page.getByText("今日嘅英文練習", { exact: true }).count(), 0);
   assert.equal(await db.collection("users").doc(bobUid).collection("learningEntries").count().get().then((result) => result.data().count), 0);
   assert.deepEqual(errors, []);
-  console.log("UI checks passed: 320/375/768/1440px, bounded keyboard scroll, goal status changes, create/edit goal links, browser restart persistence, login redirects, sign-out and account isolation.");
+  console.log("UI checks passed: responsive logo/favicon, 320/375/768/1440px, keyboard scroll, goal status, links, deletion confirmations/cancellation, independent subgoal and history deletion, goal cascade with retained notes, unused/used category deletion, persistence and account isolation.");
   console.log(`Screenshots: ${output}`);
 } catch (error) {
   console.error(serverLog);

@@ -15,6 +15,11 @@ import {
 import type { Category } from "@/features/categories/types/category.types";
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { db } from "@/lib/firebase/client";
+import { deleteResource } from "@/lib/delete-request";
+
+export async function deleteCategory(categoryId: string) {
+  await deleteResource("/api/categories", { categoryId });
+}
 
 export async function createCategory(input: CategoryInput) {
   const userId = getCurrentUserId();

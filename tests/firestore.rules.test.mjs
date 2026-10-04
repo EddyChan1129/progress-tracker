@@ -89,6 +89,55 @@ function validLearningEntry(overrides = {}) {
   };
 }
 
+it("blocks writes into a goal marked for cascade deletion, including new references and attempts to unlock it", async () => {
+  await seedCategory("deletion-owner", "category");
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const now = Timestamp.now();
+    await setDoc(doc(db, "users/deletion-owner/goals/locked"), {
+      userId: "deletion-owner", title: "Goal", categoryId: "category", status: "not_started", createdAt: now, updatedAt: now, deleting: true,
+    });
+    await setDoc(doc(db, "users/deletion-owner/goals/locked/subGoals/check"), {
+      userId: "deletion-owner", goalId: "locked", title: "Step", kind: "checklist", isCompleted: false, createdAt: now, updatedAt: now,
+    });
+  });
+  const db = testEnv.authenticatedContext("deletion-owner").firestore();
+  const goal = doc(db, "users/deletion-owner/goals/locked");
+  await assertFails(updateDoc(goal, { deleting: false, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(goal, { title: "Edited", updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(goal, "subGoals/check"), { isCompleted: true, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(goal, "subGoals/new"), {
+    userId: "deletion-owner", goalId: "locked", title: "New", kind: "checklist", isCompleted: false,
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(doc(db, "users/deletion-owner/learningEntries/new"), validLearningEntry({
+    userId: "deletion-owner", categoryId: "category", relatedGoalId: "locked",
+  })));
+});
+
+it("blocks valid paired progress writes and edits for an independently deleting subgoal", async () => {
+  await seedCategory("child-deletion-owner", "category");
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const now = Timestamp.now();
+    await setDoc(doc(db, "users/child-deletion-owner/goals/parent"), { userId: "child-deletion-owner" });
+    await setDoc(doc(db, "users/child-deletion-owner/goals/parent/subGoals/count"), {
+      userId: "child-deletion-owner", goalId: "parent", title: "Count", kind: "count", targetValue: 10, unit: "次",
+      currentValue: 0, createdAt: now, updatedAt: now, deleting: true,
+    });
+  });
+  const db = testEnv.authenticatedContext("child-deletion-owner").firestore();
+  const child = doc(db, "users/child-deletion-owner/goals/parent/subGoals/count");
+  await assertFails(updateDoc(child, { title: "Edited", updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(child, { deleting: deleteField(), updatedAt: serverTimestamp() }));
+  const batch = writeBatch(db);
+  batch.update(child, { currentValue: 1, lastUpdateId: "one", updatedAt: serverTimestamp() });
+  batch.set(doc(child, "updates/one"), {
+    userId: "child-deletion-owner", goalId: "parent", subGoalId: "count", progressDelta: 1, previousValue: 0, currentValue: 1, createdAt: serverTimestamp(),
+  });
+  await assertFails(batch.commit());
+});
+
 describe("learning goal references", () => {
   it("allows owned goals, changing a reference and removing it", async () => {
     await seedCategory("alice", "leetcode-entry");

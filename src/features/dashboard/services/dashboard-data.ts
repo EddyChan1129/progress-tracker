@@ -15,7 +15,7 @@ export function getLearningStreak(dates: Date[], today = new Date()) {
 }
 
 export function getActiveGoals(goals: Goal[]) {
-  return goals.filter((goal) => goal.status === "not_started" || goal.status === "in_progress");
+  return goals.filter((goal) => !goal.deleting && (goal.status === "not_started" || goal.status === "in_progress"));
 }
 
 export function getCompletedSubGoalCount(subGoals: SubGoal[]) {

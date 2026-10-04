@@ -25,7 +25,10 @@ npm run dev
 - 學習記錄新增、編輯及刪除統一經 `/api/learning-entries`。Server 驗證 Firebase ID token、本人分類／關聯目標、資料版本同圖片所有權，再 transaction 儲存。重試沿用同一次操作 ID。
 - Cloudinary 存圖片，Firestore 存 `publicId`／URL。先更新記錄及清理待辦，再刪除無引用圖片；部分失敗可重試。取消編輯唔會刪原本圖片。
 - 大目標狀態由使用者決定：未開始 → 進行中 → 暫停／完成，暫停可恢復。細目標完成唔會自動完成大目標。計量進度 transaction 同時更新總數及不可修改嘅歷史。
-- 記錄可選擇、改變或移除關聯大目標，唔自動增加細目標進度。仍有細目標／關聯記錄嘅大目標禁止刪除。
+- 記錄可選擇、改變或移除關聯大目標，唔自動增加細目標進度。刪除大目標時會一併刪除旗下細目標同進度歷史，並解除學習記錄嘅目標關聯；筆記及圖片保留。細目標可以獨立刪除，連同其進度歷史清除。
+- 分類列表提供刪除。仍有記錄／目標使用嘅分類需要先轉分類，server 會拒絕刪除並提示原因；唔會連帶刪除學習資料。
+- 目標刪除先喺 transaction 設定 server-only `deleting` 標記，Rules 同記錄 API 阻止新增／修改相關資料。原生 Firestore `recursiveDelete` 清理後代，學習記錄分頁解除關聯，完成先刪 parent；中途失敗可以重試，唔受單次 500 筆 batch 限制。Client 直接刪除目標／細目標／分類仍然禁止。
+- 品牌標記採用筆記頁角同向上階梯，代表將學習累積成進步；向量原檔 `public/brand/logo.svg` 用於登入頁、導覽同 favicon，另有 Apple touch icon。
 - Dashboard 用完整學習日期計 streak：同日去重、忽略未來日期；今日未有記錄時可以由昨日開始。日期按使用者裝置本地時區計算。待完成目標只包括未開始同進行中。
 
 Firestore 路徑：
@@ -73,6 +76,7 @@ Vercel 支援直接部署 Next.js project，可由 Git integration 匯入呢個 
 1. 使用已選定嘅 Vercel 帳戶／Team，同 existing project 或新 project。
 2. 將 `.env.example` 列出嘅 Firebase／Cloudinary 變數加入所需 Vercel environments。Private key 用原始內容或 `\n` 換行；唔將 secret 放入 `NEXT_PUBLIC_`。環境管理見 [Vercel environment variables](https://vercel.com/docs/environment-variables)。
 3. Production 唔設定 emulator 變數。喺 Firebase Authentication 加入正式網址嘅 authorized domain。
+   Firebase Admin 14 嘅依賴需要 `require(ESM)` 支援；Vercel 預設關閉此功能。於 Vercel environment variables 新增 Config `NODE_OPTIONS=--experimental-require-module`（Production／Preview），並使用 Node.js 24，參考 [Vercel Node.js 設定](https://vercel.com/docs/functions/runtimes/node-js/advanced-node-configuration)。修改環境變數後需要重新部署。
 4. 部署已驗證嘅 Rules 同查詢 index：
 
    ```sh

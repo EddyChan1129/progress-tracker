@@ -68,7 +68,7 @@ async function save(request: Request, editing: boolean) {
       if (deleted.exists) return "conflict";
       if (previous.exists) return previous.data()!.hash === hash && current.exists ? "saved" : "conflict";
       if (!categorySnapshot.exists || categorySnapshot.data()?.userId !== userId) return "category";
-      if (relatedGoal && (!goalSnapshot?.exists || goalSnapshot.data()?.userId !== userId)) return "goal";
+      if (relatedGoal && (!goalSnapshot?.exists || goalSnapshot.data()?.userId !== userId || goalSnapshot.data()?.deleting)) return "goal";
       if (editing) {
         if (!current.exists || current.data()!.userId !== userId) return "missing";
         if (Math.floor(current.data()!.updatedAt.toMillis()) !== expectedUpdatedAt) return "conflict";

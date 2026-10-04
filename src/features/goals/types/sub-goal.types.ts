@@ -7,6 +7,7 @@ interface SubGoalBase {
   description?: string;
   createdAt: Date;
   updatedAt: Date;
+  deleting?: boolean;
 }
 
 // 例如「搵老師」：只需要記住完成／未完成。

@@ -10,8 +10,8 @@ import { subGoalProgressSchema, type SubGoalProgressInput } from "../schemas/sub
 import { addSubGoalProgress, getSubGoalUpdates } from "../services/sub-goal.service";
 import type { CountSubGoal, SubGoalUpdate } from "../types/sub-goal.types";
 
-export function SubGoalProgress({ subGoal, onSaved }: {
-  subGoal: CountSubGoal; onSaved: (currentValue: number) => void;
+export function SubGoalProgress({ subGoal, onSaved, disabled = false }: {
+  subGoal: CountSubGoal; onSaved: (currentValue: number) => void; disabled?: boolean;
 }) {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SubGoalProgressInput>({
     resolver: zodResolver(subGoalProgressSchema), defaultValues: { progressDelta: 1, note: "" },
@@ -37,7 +37,7 @@ export function SubGoalProgress({ subGoal, onSaved }: {
   }, [subGoal.goalId, subGoal.id, version]);
 
   async function submit(input: SubGoalProgressInput) {
-    if (submitting.current) return;
+    if (submitting.current || disabled) return;
     submitting.current = true;
     setIsSaving(true);
     setError("");
@@ -65,7 +65,7 @@ export function SubGoalProgress({ subGoal, onSaved }: {
         if (pending.current) { event.preventDefault(); void submit(pending.current.input); }
         else void handleSubmit(submit)(event);
       }} className="space-y-3">
-        <fieldset disabled={isSubmitting || isSaving || isRetry} className="space-y-3">
+        <fieldset disabled={disabled || isSubmitting || isSaving || isRetry} className="space-y-3">
           <div className="space-y-1">
             <label htmlFor={inputId} className="text-sm font-medium">增加數量（{subGoal.unit}）</label>
             <Input id={inputId} type="number" step="any" aria-invalid={Boolean(errors.progressDelta)}
@@ -81,7 +81,7 @@ export function SubGoalProgress({ subGoal, onSaved }: {
           </div>
         </fieldset>
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" disabled={isSubmitting || isSaving}>{isSubmitting || isSaving ? "儲存中…" : isRetry ? "重試儲存" : "新增進度"}</Button>
+        <Button type="submit" disabled={disabled || isSubmitting || isSaving}>{isSubmitting || isSaving ? "儲存中…" : isRetry ? "重試儲存" : "新增進度"}</Button>
       </form>
       <details>
         <summary className="cursor-pointer text-sm font-medium">進度歷史</summary>

@@ -22,8 +22,9 @@ export function GoalDetail({ goalId }: { goalId: string }) {
 
   async function handleDelete() {
     if (isDeleting || !goal) return;
-    if (!window.confirm(`確定刪除「${goal.title}」？刪除後無法復原。`)) return;
+    if (!goal.deleting && !window.confirm(`確定刪除「${goal.title}」？旗下所有細目標及進度歷史亦會一併刪除，無法復原。學習記錄會保留並解除目標關聯。`)) return;
     setIsDeleting(true);
+    setGoal({ ...goal, deleting: true });
     setDeleteError("");
     try {
       await deleteGoal(goal.id);
@@ -55,19 +56,19 @@ export function GoalDetail({ goalId }: { goalId: string }) {
         : goal ? (
           <>
             <GoalCard goal={goal} categoryName={categoryName} showDetailLink={false} />
-            <GoalStatusActions key={goal.id} goal={goal} disabled={isDeleting} onChanged={(status) => {
+            <GoalStatusActions key={goal.id} goal={goal} disabled={isDeleting || Boolean(goal.deleting)} onChanged={(status) => {
               setGoal((current) => current ? { ...current, status } : current);
             }} />
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button>
+              {!goal.deleting ? <Button asChild variant="outline"><Link href={`/goals/${goal.id}/edit`}>編輯目標</Link></Button> : null}
               <Button disabled={isDeleting} onClick={handleDelete} type="button" variant="destructive">
-                {isDeleting ? "刪除中…" : "刪除目標"}
+                {isDeleting ? "刪除中…" : goal.deleting ? "重試刪除目標" : "刪除目標"}
               </Button>
             </div>
             {deleteError ? <p className="text-sm text-destructive" role="alert">{deleteError}</p> : null}
             <section className="space-y-5" aria-labelledby="sub-goals-heading">
               <h2 id="sub-goals-heading" className="text-xl font-semibold">細目標</h2>
-              <SubGoalList key={goal.id} goalId={goal.id} />
+              <SubGoalList key={goal.id} goalId={goal.id} disabled={isDeleting || goal.deleting} />
             </section>
           </>
         )

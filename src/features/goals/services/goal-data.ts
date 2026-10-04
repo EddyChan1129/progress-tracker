@@ -23,6 +23,7 @@ export function toGoal(id: string, data: DocumentData): Goal {
     ...(data.startDate ? { startDate: data.startDate.toDate() } : {}),
     ...(data.targetDate ? { targetDate: data.targetDate.toDate() } : {}),
     status: data.status,
+    ...(data.deleting === true ? { deleting: true } : {}),
     createdAt: data.createdAt.toDate(), updatedAt: data.updatedAt.toDate(),
   };
 }

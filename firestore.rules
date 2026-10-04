@@ -72,7 +72,7 @@ service cloud.firestore {
         && (!('relatedGoalId' in data) || (data.relatedGoalId is string
           && data.relatedGoalId.matches('^[A-Za-z0-9_-]{1,100}$')
           && exists(/databases/$(database)/documents/users/$(userId)/goals/$(data.relatedGoalId))
-          && get(/databases/$(database)/documents/users/$(userId)/goals/$(data.relatedGoalId)).data.userId == userId))
+          && hasOwnGoal(userId, data.relatedGoalId)))
         && exists(/databases/$(database)/documents/users/$(userId)/categories/$(data.categoryId));
     }
 
@@ -129,13 +129,15 @@ service cloud.firestore {
     // 子目標唔可以懸空；parent 路徑同欄位擁有者都要正確。
     function hasOwnGoal(userId, goalId) {
       return exists(/databases/$(database)/documents/users/$(userId)/goals/$(goalId))
-        && get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId;
+        && get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId
+        && !get(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.get('deleting', false);
     }
 
     // getAfter 睇同一個 batch 完成後嘅 parent，容許大／細目標一齊新增。
     // Parent 唔存在或擁有者唔正確時，細目標仍然會被拒絕。
     function hasOwnGoalAfter(userId, goalId) {
-      return getAfter(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId;
+      return getAfter(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.userId == userId
+        && !getAfter(/databases/$(database)/documents/users/$(userId)/goals/$(goalId)).data.get('deleting', false);
     }
 
     function isValidNewSubGoal(userId, goalId) {
@@ -203,6 +205,7 @@ service cloud.firestore {
       let path = /databases/$(database)/documents/users/$(userId)/goals/$(goalId)/subGoals/$(subGoalId)/updates/$(updateId);
       let history = getAfter(path).data;
       return old.userId == userId && old.goalId == goalId && old.kind == 'count'
+        && !old.get('deleting', false)
         && next.diff(old).affectedKeys().hasOnly(['currentValue', 'lastUpdateId', 'updatedAt'])
         && next.lastUpdateId == updateId
         && updateId is string && updateId.matches('^[A-Za-z0-9_-]{1,128}$')
@@ -261,6 +264,7 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidNewGoal(userId);
       allow update: if isOwner(userId) && resource.data.userId == userId
+        && !resource.data.get('deleting', false)
         && isValidGoal(userId)
         // affectedKeys 包括新增、修改及刪除嘅欄位；只准改以下幾個。
         // 編輯保留 status；另一個分支只接受明確、合法嘅狀態操作。
@@ -268,13 +272,13 @@ service cloud.firestore {
           'title', 'description', 'categoryId', 'startDate', 'targetDate', 'updatedAt'
         ]) || isValidGoalStatusChange())
         && request.resource.data.updatedAt == request.time;
-      // Client 直接 delete 一律拒絕；Task 27 由 server 驗證冇細目標／關聯後刪除。
-      // 目的係防止繞過 UI，將有關聯資料嘅 parent 留低孤兒資料。
+      // Client 直接 delete 一律拒絕；server 清理細目標／歷史及解除記錄關聯。
       match /subGoals/{subGoalId} {
         allow read: if isOwner(userId) && hasOwnGoal(userId, goalId);
         allow create: if isOwner(userId) && hasOwnGoalAfter(userId, goalId)
           && isValidNewSubGoal(userId, goalId);
         allow update: if isOwner(userId) && hasOwnGoal(userId, goalId)
+          && !resource.data.get('deleting', false)
           && (isValidSubGoalUpdate(userId, goalId) || isValidChecklistCompletion(userId, goalId)
             || isPairedCountProgress(userId, goalId, subGoalId, resource.data,
               request.resource.data, request.resource.data.lastUpdateId));

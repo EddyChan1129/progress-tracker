@@ -1,6 +1,7 @@
 "use client";
 
-import { BookOpenCheck, Check } from "lucide-react";
+import { Check } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "./auth-provider";
@@ -21,7 +22,7 @@ export function LoginScreen() {
   return (
     <main className="grid min-h-dvh lg:grid-cols-2">
       <section className="flex flex-col justify-between bg-[#173c65] px-7 py-10 text-white sm:px-14 lg:p-16">
-        <div className="flex items-center gap-3 text-lg font-semibold"><BookOpenCheck aria-hidden size={28} />學習追蹤</div>
+        <BrandLogo inverse />
         <div className="my-12 max-w-lg lg:my-24">
           <h1 className="text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">把學過的，<br />變成走過的路。</h1>
           <p className="mt-6 max-w-sm text-base leading-8 text-blue-100">記低一次練習、一個發現，再一步步完成你想達成嘅目標。</p>

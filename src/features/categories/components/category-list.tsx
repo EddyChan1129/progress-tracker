@@ -2,14 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { ScrollPanel } from "@/components/ui/scroll-panel";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
-import { getCategories } from "@/features/categories/services/category.service";
+import { deleteCategory, getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
 
 export function CategoryList() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [deletingId, setDeletingId] = useState("");
+
+  async function handleDelete(category: Category) {
+    if (deletingId || !window.confirm(`確定刪除分類「${category.name}」？刪除後無法復原。如有記錄或目標使用，請先轉到其他分類。`)) return;
+    setDeletingId(category.id);
+    setErrorMessage("");
+    try {
+      await deleteCategory(category.id);
+      setCategories((current) => current.filter((item) => item.id !== category.id));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "刪除分類失敗，請重試。");
+    } finally {
+      setDeletingId("");
+    }
+  }
 
   useEffect(() => {
     let isCurrent = true;
@@ -62,7 +79,11 @@ export function CategoryList() {
               <span aria-hidden className="text-xl">
                 {category.icon ?? "📁"}
               </span>
-              <span className="min-w-0 font-medium">{category.name}</span>
+              <span className="min-w-0 flex-1 break-words font-medium">{category.name}</span>
+              <Button type="button" size="sm" variant="ghost" className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={Boolean(deletingId)} onClick={() => handleDelete(category)} aria-label={`刪除分類「${category.name}」`}>
+                <Trash2 aria-hidden size={15} />
+              </Button>
             </li>
           ))}
         </ul></ScrollPanel>

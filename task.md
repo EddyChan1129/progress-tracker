@@ -773,6 +773,16 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - Firebase client 加入 development-only emulator 支援；next.config.ts 用獨立測試 distDir，關閉會遮擋登出按鈕嘅 dev indicator。
   - 本機瀏覽器多尺寸、長列表、關閉／重開持續登入、登出／換帳戶驗證通過；冇加入 application dependencies。
 
+## 2026-10-05 新增需求
+
+- [x] Task 40 — complete：刪除大目標／細目標／分類及品牌 logo。
+  - 最新政策取代 Task 27 舊嘅「只刪空目標」：刪大目標會連細目標／進度歷史刪除，學習記錄及圖片保留並解除目標關聯；細目標可以獨立刪除及清理歷史。
+  - 分類列表提供刪除；仍被記錄／目標使用時提示先轉分類，避免連帶刪資料。
+  - Server 驗證本人身份／路徑，deleting 標記配合 Rules 防止並行新增；原生 recursiveDelete 清理大量歷史，學習記錄分頁解除關聯。失敗保留刪除狀態可重試，已完成刪除嘅重試亦成功。
+  - Logo：自訂 SVG 筆記頁角／階梯標記，套用登入頁、導覽、favicon 同 Apple touch icon。
+  - 完成日期：2026-10-05。110 個自動測試、lint、TypeScript／production build、320／375／768／1440 px 瀏覽器驗證通過；涵蓋刪除確認／取消、550 筆歷史、105 筆關聯記錄、失敗重試、並行操作及帳戶隔離。
+  - 配套 Firestore Rules 已成功編譯及部署到 `process-tracking-87407`。刪除測試只用 demo Emulator，冇刪除正式資料；Vercel app 仍由使用者部署。
+
 ## v0.2 待辦（今輪唔做）
 
 - 其他需求重新逐步規劃，唔自動開始。

@@ -3,9 +3,14 @@ import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { subGoalSchema, type SubGoalInput } from "../schemas/sub-goal.schema";
 import type { SubGoal } from "../types/sub-goal.types";
 import { db } from "@/lib/firebase/client";
+import { deleteResource } from "@/lib/delete-request";
 import { toSubGoal } from "./sub-goal-data";
 import { commitSubGoalProgress, toSubGoalUpdate } from "./sub-goal-progress";
 import type { SubGoalProgressInput } from "../schemas/sub-goal-progress.schema";
+
+export async function deleteSubGoal(goalId: string, subGoalId: string) {
+  await deleteResource("/api/goals", { goalId, subGoalId });
+}
 
 // 新增同讀取都要有本人既有大目標；唔接受 caller 傳入 userId。
 async function getSubGoalsCollection(goalId: string) {

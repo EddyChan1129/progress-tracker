@@ -2,18 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { ScrollPanel } from "@/components/ui/scroll-panel";
-import { getSubGoals, setChecklistCompletion } from "../services/sub-goal.service";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
+import { deleteSubGoal, getSubGoals, setChecklistCompletion } from "../services/sub-goal.service";
 import type { SubGoal } from "../types/sub-goal.types";
 import { SubGoalProgress } from "./sub-goal-progress";
 
-export function SubGoalList({ goalId }: { goalId: string }) {
+export function SubGoalList({ goalId, disabled = false }: { goalId: string; disabled?: boolean }) {
   const [subGoals, setSubGoals] = useState<SubGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [updatingId, setUpdatingId] = useState("");
 
+  async function handleDelete(subGoal: SubGoal) {
+    if (disabled || updatingId) return;
+    if (!subGoal.deleting && !window.confirm(`確定刪除細目標「${subGoal.title}」？佢嘅所有進度歷史亦會刪除，無法復原。大目標及其他細目標會保留。`)) return;
+    setUpdatingId(subGoal.id);
+    setErrorMessage("");
+    setSubGoals((current) => current.map((item) => item.id === subGoal.id ? { ...item, deleting: true } : item));
+    try {
+      await deleteSubGoal(goalId, subGoal.id);
+      setSubGoals((current) => current.filter((item) => item.id !== subGoal.id));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "刪除細目標失敗，請重試。");
+    } finally {
+      setUpdatingId("");
+    }
+  }
+
   async function handleChecklistChange(subGoal: SubGoal, isCompleted: boolean) {
-    if (subGoal.kind !== "checklist" || updatingId) return;
+    if (subGoal.kind !== "checklist" || updatingId || disabled || subGoal.deleting) return;
     setUpdatingId(subGoal.id);
     setErrorMessage("");
     try {
@@ -50,9 +68,13 @@ export function SubGoalList({ goalId }: { goalId: string }) {
           <div className="flex items-start gap-3">
             {subGoal.kind === "checklist" ? (
               <input className="mt-1 size-5 shrink-0 accent-primary" aria-label={`標記「${subGoal.title}」完成`} checked={subGoal.isCompleted}
-                disabled={Boolean(updatingId)} onChange={(event) => handleChecklistChange(subGoal, event.target.checked)} type="checkbox" />
+                disabled={disabled || Boolean(updatingId) || subGoal.deleting} onChange={(event) => handleChecklistChange(subGoal, event.target.checked)} type="checkbox" />
             ) : null}
-            <h3 className="break-words font-semibold">{subGoal.title}</h3>
+            <h3 className="min-w-0 flex-1 break-words font-semibold">{subGoal.title}</h3>
+            <Button type="button" size="sm" variant="ghost" className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={disabled || Boolean(updatingId)} onClick={() => handleDelete(subGoal)} aria-label={`刪除細目標「${subGoal.title}」`}>
+              <Trash2 aria-hidden size={15} /><span className="hidden sm:inline">{updatingId === subGoal.id ? "處理中…" : subGoal.deleting ? "重試刪除" : "刪除"}</span>
+            </Button>
           </div>
           {subGoal.description ? <p className="whitespace-pre-wrap break-words text-sm">{subGoal.description}</p> : null}
           <p className="break-words text-sm text-muted-foreground">
@@ -60,7 +82,7 @@ export function SubGoalList({ goalId }: { goalId: string }) {
               ? `勾選完成 · ${subGoal.isCompleted ? "已完成" : "未完成"}`
               : `計數 · ${subGoal.currentValue} / ${subGoal.targetValue} ${subGoal.unit} · ${subGoal.currentValue >= subGoal.targetValue ? "已完成" : "未完成"}`}
           </p>
-          {subGoal.kind === "count" ? <SubGoalProgress subGoal={subGoal} onSaved={(currentValue) => {
+          {subGoal.kind === "count" ? <SubGoalProgress subGoal={subGoal} disabled={disabled || Boolean(updatingId) || subGoal.deleting} onSaved={(currentValue) => {
             setSubGoals((current) => current.map((item) => item.id === subGoal.id && item.kind === "count"
               ? { ...item, currentValue } : item));
           }} /> : null}

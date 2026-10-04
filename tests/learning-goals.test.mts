@@ -11,7 +11,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("Use the Firestore emu
 process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "demo-progress-tracker";
 after(async () => { mock.restoreAll(); await Promise.all(getApps().map(deleteApp)); });
 
-it("links, changes and removes only owned goals; prevents linked deletion and preserves history", async () => {
+it("links only owned goals, unlinks notes during goal deletion and preserves history when deleting only a note", async () => {
   const userId = "link-alice";
   mock.method(getAdminAuth(), "verifyIdToken", async () => ({ uid: userId }));
   const db = getAdminDb();
@@ -36,19 +36,21 @@ it("links, changes and removes only owned goals; prevents linked deletion and pr
   assert.equal((await ref.get()).data()!.relatedGoalId, one.id);
   assert.equal((await POST(request(body))).status, 200);
   assert.equal((await POST(request({ ...body, input: { ...body.input, relatedGoalId: two.id } }))).status, 409);
-  assert.equal((await deleteGoal(request({ goalId: one.id }))).status, 409);
 
   const edit = async (relatedGoalId: string) => PATCH(request({ ...body, input: { ...body.input, relatedGoalId }, operationId: randomUUID(), expectedUpdatedAt: Math.floor((await ref.get()).data()!.updatedAt.toMillis()) }));
   assert.equal((await edit(foreign.id)).status, 400);
   assert.equal((await ref.get()).data()!.relatedGoalId, one.id);
   assert.equal((await edit(two.id)).status, 200);
   assert.equal((await ref.get()).data()!.relatedGoalId, two.id);
-  assert.equal((await deleteGoal(request({ goalId: two.id }))).status, 409);
+  assert.equal((await deleteGoal(request({ goalId: two.id }))).status, 200);
+  assert.equal("relatedGoalId" in (await ref.get()).data()!, false);
   assert.equal((await edit("")).status, 200);
   assert.equal("relatedGoalId" in (await ref.get()).data()!, false);
   assert.equal((await deleteGoal(request({ goalId: two.id }))).status, 200);
   assert.equal((await DELETE(request({ entryId: body.entryId }))).status, 200);
   assert.deepEqual((await history.get()).data(), { currentValue: 2 });
+  assert.equal((await deleteGoal(request({ goalId: one.id }))).status, 200);
+  assert.equal((await history.get()).exists, false);
 
   // 新關聯同刪目標並行時，唔可以產生指向已刪除目標嘅記錄。
   const racingGoal = owner.collection("goals").doc(randomUUID());
@@ -56,5 +58,5 @@ it("links, changes and removes only owned goals; prevents linked deletion and pr
   const racingEntry = { ...body, entryId: randomUUID(), input: { ...body.input, relatedGoalId: racingGoal.id } };
   await Promise.all([POST(request(racingEntry)), deleteGoal(request({ goalId: racingGoal.id }))]);
   const [goalSnapshot, entrySnapshot] = await Promise.all([racingGoal.get(), owner.collection("learningEntries").doc(racingEntry.entryId).get()]);
-  assert.ok(!entrySnapshot.exists || goalSnapshot.exists);
+  assert.ok(!entrySnapshot.exists || !entrySnapshot.data()?.relatedGoalId || goalSnapshot.exists);
 });
