@@ -112,25 +112,25 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     setSuccessMessage("");
 
     try {
-        imageAttempt.current ??= {
-          id: entryId ?? crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map(),
-          ...(entryId ? {
-            operationId: crypto.randomUUID(),
-            expectedUpdatedAt: originalEntry.current!.updatedAt.getTime(),
-            startedAt: originalEntry.current!.createdAt.toISOString(),
-          } : {}),
-        };
-        // 成功與否未確認前，只重試同一份資料同 operationId。
-        setImageRetryPending(true);
-        const result = await saveLearningEntryWithImages(input, imageFiles, imageAttempt.current, savedImages);
-        imageAttempt.current = null;
-        setImageFiles([]);
-        setImageRetryPending(false);
-        if (entryId) {
-          router.push("/learning");
-          return;
-        }
-        setSuccessMessage(result.cleanupPending ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。" : "學習記錄已新增。");
+      imageAttempt.current ??= {
+        id: entryId ?? crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map(),
+        ...(entryId ? {
+          operationId: crypto.randomUUID(),
+          expectedUpdatedAt: originalEntry.current!.updatedAt.getTime(),
+          startedAt: originalEntry.current!.createdAt.toISOString(),
+        } : {}),
+      };
+      // 成功與否未確認前，只重試同一份資料同 operationId。
+      setImageRetryPending(true);
+      const result = await saveLearningEntryWithImages(input, imageFiles, imageAttempt.current, savedImages);
+      imageAttempt.current = null;
+      setImageFiles([]);
+      setImageRetryPending(false);
+      if (entryId) {
+        router.push("/learning");
+        return;
+      }
+      setSuccessMessage(result.cleanupPending ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。" : "學習記錄已新增。");
       reset({
         title: "",
         content: "",

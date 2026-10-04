@@ -1,16 +1,11 @@
-# Personal Learning Progress Tracker — 逐步學習計劃
+# Personal Learning Progress Tracker — 實作與驗收紀錄
 
 ## 合作方式
 
-- **一次只做一個 Task。** 只實作當次指定嘅 task，唔提前建立其他功能或安裝未用套件。
-- 每步開始前，先用廣東話解釋：做乜、點解需要、會改邊啲檔案、資料點樣流動，同有咩簡單替代方案。
-- 每步完成後，逐個重要檔案講解：責任、輸入、輸出、邊個呼叫、冇咗會影響乜；再解釋重要 function。
-- 每步提供簡單驗收方法；有非簡單邏輯就留低最小可執行檢查。涉及權限同資料一致性必須測試。
-- 每步問 1–2 條理解問題；完成一個主要功能時問 3–5 條。
-- **完成同驗收後，將該項改成 `[x] Task NN — complete`，加完成日期、實際改動檔案、驗收結果。未驗證唔可以當完成。**
-- 標記完成後停低，等你話「明白，下一步」先開始下一個 Task。你問 code 時先講解，唔順便做下一步。
-- 如果一個 Task 實際太大，先喺呢份文件拆細，再只做第一小步。
-- 做到 Firebase Console、帳戶設定等需要你操作嘅部分，會提供具體步驟；未完成就保留未完成狀態。
+- **2026-10-04 使用者確認學習目標完成，要求一次完成所有剩餘 tasks。** 以下過往逐步教學／理解題保留作紀錄，唔再作為開發或驗收嘅阻擋。
+- 一次完成 v0.1 剩餘功能，並套用 frontend-design skill；新增要求：responsive、長內容限制高度並可捲動、持續登入及自動進入 app。
+- 權限、資料一致性及非簡單邏輯保留可執行測試；完成標記附實際檔案同驗收結果。
+- 外部部署需要確定平台帳戶／project；缺少設定時記錄待辦，唔將本機驗證當成已上線。
 
 ## 已確認現況（2026-09-27）
 
@@ -151,7 +146,8 @@ Cloudinary 參考：[Client-side uploading](https://cloudinary.com/documentation
   - 改動：只新增 `task.md`。
   - 驗收：已讀原 prompt、檢查現有檔案；未建立 app 或安裝套件。
 
-- [ ] Task 01 — 一齊行一次資料流程。
+- [x] Task 01 — complete：資料流程講解。
+  - 完成日期：2026-10-04。使用者確認學習目標已完成，唔再要求理解題回覆；架構同資料流程已整理於 README。
   - 做：用「新增一筆 LeetCode 學習記錄」說明 page、form、schema、service、Rules；確認上面資料模型同簡化約定。
   - 檔案：只按討論修訂 `task.md`。
   - 驗收：你能指出驗證、寫入、顯示各自喺邊一層，理解後先開始 foundation。
@@ -560,7 +556,7 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解確認：使用者理解登入 UID 來源及分類存在／擁有者檢查；補充後確認 Rules 拒絕繞過 service 提交 currentValue = 100，亦拒絕本人 Goal 刪除，因為今步只開放 read／create。
   - 完成日期：2026-10-03。
 
-- [ ] Task 24 — 舊新增目標表單（設計已取代）。
+- Task 24 — cancelled：舊新增目標表單由已完成嘅 Task 24a／24b 取代。
   - 原本做：強制輸入數量、單位同日期。
   - 使用者驗收時提出「成為冷氣佬」、「英文 speaking」等大目標，要求下面有多個子目標；舊表單未完成理解／驗收，因此唔標記 complete。
   - 使用者已 reset 到 Task 23 commit；舊 Task 24 表單已移除。改由 Task 24a／24b 做新版。
@@ -639,7 +635,8 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 理解問題：① 點解用 writeBatch 一次儲存，唔分開逐筆新增？② 冇細目標可唔可以儲存？③ 點解 count 要 valueAsNumber？
   - 理解確認：使用者答對冇細目標亦可儲存，以及其中一筆被 Rules 拒絕就整批唔保存。經講解後，使用者分清「加入細目標」只更新表單記憶體、「儲存目標」先寫 Firestore；未儲存就 refresh 會消失。失敗唔 reset，避免丟失輸入；reset 回復 defaultValues，唔一定全部係空字串。
 
-- [ ] Task 26 — 編輯大目標／子目標。
+- [x] Task 26 — complete：編輯大目標／子目標。
+  - 完成日期：2026-10-04。由已完成嘅 Task 26a／26b 實作，今輪整體回歸重新驗證。
   - 拆細（2026-10-03）：原先拆成 26a–26d；使用者之後要求統一編輯，26c／26d 已合併到 26b。
 
 - [x] Task 26a — complete：大目標更新 service 同 Rules。
@@ -704,7 +701,8 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 自動驗收（2026-10-04）：schema 24、goal data 5、Rules／transaction 54 個測試全部通過；包括並行 +2／+3、同操作並行重試只計一次、非法配對整批回滾。修正 Task 28 舊測試仍假設 checklist 不可勾選嘅過期斷言。lint、typecheck、Webpack production build 通過。
   - 手動驗收（2026-10-04）：使用者確認三項測試通過：新增 +2 同備註後總數／歷史更新、refresh 保留資料、兩個分頁分別新增 +2／+3 後總數增加 5。Task 29 complete。
 
-- [ ] Task 30 — 大目標開始／完成／暫停／恢復。
+- [x] Task 30 — complete：大目標開始／完成／暫停／恢復。
+  - 完成日期：2026-10-04。完整回歸通過；本機瀏覽器驗證暫停／恢復／完成及 refresh 保留，細目標勾選數保持原值。正式 Rules 已成功部署。
   - 做：使用者明確操作大目標 status，service／Rules 限制合法轉換；子目標完成數唔自動等於大目標 completed。
   - 檔案：goal service、狀態 UI、Rules 同測試。
   - 驗收：全部子目標完成仍由使用者判斷大目標完成，非法狀態轉換被拒。
@@ -712,45 +710,68 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - setGoalStatus 從登入狀態取 UID；commitGoalStatus transaction 讀取最新狀態，驗證所有權及合法轉換，過期頁面唔覆蓋新狀態。同一狀態重試唔再次寫入，成功先更新畫面；提交中禁用按鈕，失敗保留目前顯示並提示。
   - Rules 獨立限制合法狀態轉換，狀態操作只准改 status／server updatedAt；唔可順便改文字、日期、身份或其他欄位。大目標狀態唔由細目標完成數自動推算，唔修改細目標進度／歷史。
   - 自動驗收：Rules／transaction 回歸 60 個測試、lint、typecheck、Webpack production build 通過；包括全部狀態組合、跨帳戶、偽造欄位、過期／並行操作、重試、細目標完成唔自動完成 parent 同保留歷史。可用 npm run test:goal-status 重跑新增測試。
-  - 待使用者手動驗收：部署 Rules；開始 → 暫停 → 恢復 → 完成，每步 refresh 保留狀態；細目標進度／歷史保持原值，全部細目標完成時大目標仍要自行按完成。
+  - 收尾驗收（2026-10-04）：正式 Rules 已部署；Emulator 瀏覽器驗證暫停 → 恢復 → 完成後 refresh 保留狀態，細目標完成數保持原值。Rules／transaction 測試確認全部細目標完成唔會自動完成大目標。
 
-- [ ] Task 31 — Learning Entry 關聯大目標。
+- [x] Task 31 — complete：Learning Entry 關聯大目標。
   - 做：LearningForm 可選本人目標；service／Rules 驗證關聯，維護 Task 27 刪除保護；唔自動增加子目標進度。
   - 檔案：learning／goal form、schema、service、Rules 同測試。
   - 驗收：關聯／改關聯／取消關聯正常；他人／不存在目標被拒；歷史唔因 learning entry 刪除而消失。
+  - 完成日期：2026-10-04。
+  - 實際檔案：learning.schema、LearningForm／LearningList／LearningCard、learning.service／learning-image.service、`src/app/api/learning-entries/route.ts`、firestore.rules、learning schema／Rules tests、`tests/learning-goals.test.mts`。
+  - 所有記錄新增／修改統一經既有 server API，保留同次操作 ID／版本檢查／圖片清理。Transaction 讀取本人目標，取消關聯明確刪除欄位。移除未使用嘅 client create／update 路徑。
+  - 自動驗證涵蓋關聯、改關聯、取消、跨帳戶／偽造 owner／不存在目標拒絕、關聯阻止刪目標、並行新增關聯／刪目標唔留孤兒、歷史保留及同次操作重試。
+  - 本機瀏覽器確認新增／取消關聯保存；目標喺表單開啟後被刪除時，server 拒絕並容許重新選擇，重試只建立一筆。
 
 ## Phase 8 — Simple dashboard
 
 - Task 32 — cancelled（2026-09-27）：按使用者要求取消時長統計，唔需要實作。保留編號，之後直接做 Task 33。
 
-- [ ] Task 33 — 最近記錄同 active goals。
+- [x] Task 33 — complete：最近記錄同 active goals。
   - 做：重用現有 Card／services，顯示最近記錄、not_started／in_progress 大目標同已完成子目標數；唔將勾選數換算為能力百分比。
   - 檔案：dashboard components／page、必要 service query。
   - 驗收：paused／completed 唔當 active；空資料有清楚提示。
+  - 完成日期：2026-10-04。新增 `src/features/dashboard/components/dashboard.tsx`、services/dashboard.service.ts／dashboard-data.ts，更新 dashboard page。
+  - 顯示最近 8 筆記錄、待完成大目標、已完成／全部細目標數、記錄總數及已完成大目標數。服務並行讀取互不依賴嘅資料；paused／completed 排除，唔用完成數表示能力百分比。
+  - Dashboard 測試驗證篩選同 checklist／count 完成判斷；瀏覽器驗證長列表、empty state、loading 同兩個測試帳戶資料隔離。
 
-- [ ] Task 34 — Learning streak。
+- [x] Task 34 — complete：Learning streak。
   - 做：先定義「每日有至少一筆記錄」；今日未學時可由昨日開始算，未來記錄不計，同日去重。
   - 檔案：dashboard 日期計算、最小測試、streak 顯示。
   - 驗收：同日多筆、斷日、今日未學、跨月／跨年、空資料都有檢查；唔只用最近 N 筆估算。
+  - 完成日期：2026-10-04。dashboard-data.ts 用本地年月日轉成 calendar day ordinal，同日去重，今日或昨日開始，忽略未來日期；以完整記錄計算後先截取最近列表。
+  - `tests/dashboard.test.mts` 驗證上述情況、120 日完整序列及夏令時間；Asia/Hong_Kong 同 America/New_York 時區檢查通過。
 
 - Task 35 — cancelled（2026-09-27）：按使用者要求取消各分類時長統計，唔需要實作。保留編號，之後直接做 Task 36。
 
 ## Phase 9 — 收尾同部署
 
-- [ ] Task 36 — v0.1 整體驗收。
+- [x] Task 36 — complete：v0.1 整體自動驗收。
   - 做：由登入到分類、記錄 CRUD、code 顯示、Cloudinary 多圖、目標 CRUD、進度、dashboard 走一次；檢查 loading／empty／error、手機同鍵盤操作。
   - 檔案：只改發現問題涉及嘅檔案，記錄驗收結果。
   - 驗收：lint／TypeScript／build／現有測試通過；以兩個帳戶驗證隔離、登出後唔殘留前一個帳戶資料。
+  - 完成日期：2026-10-04。完整 103 個 schema／Rules／transaction／圖片流程測試通過；lint、TypeScript、Webpack 同預設 Turbopack production build 通過。
+  - 新增 `scripts/check-ui.mjs`、`npm run test:ui`，使用獨立 Auth／Firestore Emulator 同兩個測試帳戶；驗證 320／375／768／1440 px、鍵盤捲動、狀態操作、記錄新增／修改、目標關聯、關閉瀏覽器再開保持登入、首頁／login 自動跳轉、登出私人頁面保護及帳戶隔離。
+  - 真實 Cloudinary 回歸用 mock、Google 身份用 Auth Emulator；之前使用者已確認正式圖片流程，今輪冇新增／修改／刪除正式記錄或圖片。正式 Vercel 網址驗收留喺 Task 37。
 
-- [ ] Task 37 — Vercel 部署。
+- Task 37 — 使用者自行部署（2026-10-04 最新要求）。
   - 做：確認部署帳戶／repo，設定 Firebase／Cloudinary server 環境變數、Firebase authorized domain，部署已驗證嘅 Rules／必要 indexes，再部署 app；驗證正式環境圖片流程。
   - 檔案：只加平台實際需要嘅設定；唔將秘密寫入 repo。
   - 驗收：正式網址登入同核心流程正常；若部署需要你登入／設定，完成先標記 complete。
+  - 進度（2026-10-04）：已成功部署 Firestore Rules 同 firestore.indexes.json 到 `process-tracking-87407`；CLI 確認編譯成功、index deployed、rules released、Deploy complete。
+  - 使用者已明確要求唔做 Vercel deployment，會自行處理。Agent 唔再等待 Vercel 帳戶或部署 app；正式 domain 同網址驗收由使用者處理，指引同變數名稱已整理於 README。
 
-- [ ] Task 38 — 寫低自己理解嘅架構。
+- [x] Task 38 — complete：README 同架構交付。
   - 做：整理 README：啟動方式、環境變數名稱、資料流程、Rules、測試、已知限制。
   - 檔案：`README.md`、本文件。
   - 驗收：你可以跟 README 啟動，並指出新增一個欄位要改邊幾層；確認 v0.1 完成。
+  - 完成日期：2026-10-04。使用者已確認學習目標完成；新增 README，涵蓋啟動、環境變數、資料／權限／圖片流程、dashboard、測試、部署及現有限制。指令已由今輪自動檢查核實；本輪程式部分完成，Vercel 按最新要求由使用者處理。
+
+- [x] Task 39 — complete：frontend design、responsive、長內容捲動同持續登入。
+  - 完成日期：2026-10-04。新增 PageHeader、ScrollPanel、LoginScreen；更新全域 palette／type、導覽、dashboard、列表／表單及 Button／Input。
+  - 桌面側欄／手機四格導覽；task／goal／history／筆記／預覽／編輯細目標限制高度，顯示 scrollbar；鍵盤 focus／scroll、reduced motion 同長內容換行有處理。
+  - Google 登入明確設定 browserLocalPersistence；首頁同 login 等待身份恢復後自動去 dashboard；AppLayout 按 UID 重新建立私人資料元件。
+  - Firebase client 加入 development-only emulator 支援；next.config.ts 用獨立測試 distDir，關閉會遮擋登出按鈕嘅 dev indicator。
+  - 本機瀏覽器多尺寸、長列表、關閉／重開持續登入、登出／換帳戶驗證通過；冇加入 application dependencies。
 
 ## v0.2 待辦（今輪唔做）
 
@@ -760,4 +781,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 30 程式已實作，等待使用者部署 Rules 同手動驗收。** 唔連接 browser，唔自動開始 Task 31。
+**本輪所有開發、設計同自動驗收完成。Vercel app 部署及正式網址驗收按使用者最新要求自行處理，唔再作為今輪待辦。**

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -85,7 +85,7 @@ try {
     await delay(500);
   }
   assert.ok(ready, "Test dev server did not start.");
-  context = await chromium.launchPersistentContext(profile, { headless: true, viewport: { width: 1440, height: 1000 }, timezoneId: "Asia/Hong_Kong" });
+  context = await chromium.launchPersistentContext(profile, { headless: true, ignoreDefaultArgs: ["--hide-scrollbars"], viewport: { width: 1440, height: 1000 }, timezoneId: "Asia/Hong_Kong" });
   let page = context.pages()[0];
   page.on("pageerror", (error) => errors.push(error.message));
   await signIn(page, email);
@@ -149,7 +149,7 @@ try {
   await page.getByRole("region", { name: "分類列表" }).waitFor();
   await assertFits(page, 320);
   await context.close();
-  context = await chromium.launchPersistentContext(profile, { headless: true, timezoneId: "Asia/Hong_Kong" });
+  context = await chromium.launchPersistentContext(profile, { headless: true, ignoreDefaultArgs: ["--hide-scrollbars"], timezoneId: "Asia/Hong_Kong" });
   page = context.pages()[0];
   page.on("pageerror", (error) => errors.push(error.message));
   for (const path of ["/", "/login"]) {
@@ -173,6 +173,7 @@ try {
   throw error;
 } finally {
   await context?.close();
+  await rm(profile, { recursive: true, force: true });
   if (server) { server.kill("SIGTERM"); await new Promise((done) => server.once("exit", done)); }
   await deleteApp(app);
 }
