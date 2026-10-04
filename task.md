@@ -688,6 +688,16 @@ Task 22／23 係已完成嘅舊計量目標設計；以下保留當時驗收紀�
   - 實作前必須拆細，唔一次做晒一致性邏輯同 UI。
   - 驗收：並行 +2／+3 冇遺失；失敗唔只寫一半；只改 currentValue 或只新增 history 被拒；同一次操作重試唔重複計數。
 
+- [ ] Task 29a — 理解計量進度流程、型別同輸入驗證。
+  - 先講解：currentValue 50 + progressDelta 2 = 52；同一 transaction 更新總數並新增不可改寫嘅歷史。同次儲存重試沿用 operation ID，防止重複加數。
+  - 理解確認後建立最小進度輸入 schema／歷史 type 同驗證測試；今次先完成拆步及講解，程式未開始。
+- [ ] Task 29b — 進度 service、Rules 同一致性測試。
+  - 驗證本人 count；transaction 配對總數／歷史，操作 ID 保證重試唔重複計數。測試並行 +2／+3、非法資料、單邊寫入及同次操作重試。
+- [ ] Task 29c — 新增進度表單。
+  - 輸入增加數量及可選備註；提交中防重複按，失敗保留輸入及同次操作 ID，成功先更新畫面。
+- [ ] Task 29d — 進度歷史列表。
+  - 讀取本人 count 歷史，顯示增量／備註／時間，refresh 後仍在；處理 loading／empty／error。
+
 - [ ] Task 30 — 大目標開始／完成／暫停／恢復。
   - 做：使用者明確操作大目標 status，service／Rules 限制合法轉換；子目標完成數唔自動等於大目標 completed。
   - 檔案：goal service、狀態 UI、Rules 同測試。
@@ -739,4 +749,4 @@ v0.1 唔做：AI、RAG、推薦、通知、複雜圖表、gamification、heatmap
 
 ## 下次由邊度開始
 
-**Task 26a、26b、27、28 complete。** Task 26b 已改為整個目標同頁編輯，包含原 26c／26d 範圍。下一步 Task 29：計量子目標進度歷史，先拆細及講解，再實作；等使用者指示。
+**Task 28 complete；Task 29 已開始並拆成 29a–29d。** 目前 29a 先講解資料流程，等理解確認後實作型別／schema；唔自動開始 29b。
