@@ -8,17 +8,19 @@ export function AuthStatus() {
 
   if (isLoading) {
     return (
-      <p className="mt-4 text-slate-600" role="status">
+      <p className="mt-4 text-muted-foreground" role="status">
         檢查登入狀態…
       </p>
     );
   }
 
-  if (!user) return <p className="mt-4 text-slate-600">目前未登入。</p>;
+  if (!user) return <p className="mt-4 text-muted-foreground">目前未登入。</p>;
 
   return (
     <div className="mt-4">
-      <p className="text-slate-600">已登入：{user.email ?? "Google 帳戶"}</p>
+      <p className="text-muted-foreground">
+        已登入：{user.email ?? "Google 帳戶"}
+      </p>
       <SignOutButton />
     </div>
   );

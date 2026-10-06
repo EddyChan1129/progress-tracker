@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import { AuthProvider } from "@/features/auth/components/auth-provider";
 
@@ -7,7 +7,18 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "學習進度追蹤",
   description: "記錄學習內容，同一步步達成學習目標。",
-  icons: { icon: { url: "/brand/logo.svg", type: "image/svg+xml" }, apple: "/brand/apple-touch-icon.png" },
+  icons: {
+    icon: { url: "/brand/logo.svg", type: "image/svg+xml" },
+    apple: "/brand/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: "#f2f3ef",
 };
 
 export default function RootLayout({

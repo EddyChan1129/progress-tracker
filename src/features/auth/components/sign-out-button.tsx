@@ -31,12 +31,13 @@ export function SignOutButton() {
         disabled={isLoading}
         onClick={handleSignOut}
         type="button"
-        variant="outline"
+        variant="ghost"
+        size="sm"
       >
         {isLoading ? "登出中…" : "登出"}
       </Button>
       {errorMessage && (
-        <p className="mt-2 text-sm text-red-700" role="alert">
+        <p className="mt-2 text-sm text-destructive" role="alert">
           {errorMessage}
         </p>
       )}

@@ -65,7 +65,7 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-已有其他 Playwright runtime 時，可以設定 `PLAYWRIGHT_MODULE` 為其 module 絕對路徑。`test:ui` 自動使用本機 Auth／Firestore Emulator，建立兩個測試帳戶同長列表，啟動獨立 `localhost:3100`，驗證 320／375／768／1440 px、鍵盤捲動、狀態切換、關聯儲存／取消、關閉瀏覽器後登入保留、首頁跳轉、登出及帳戶隔離。截圖保存喺 `.next/ui-checks/`；測試唔寫入正式 Firebase。
+已有其他 Playwright runtime 時，可以設定 `PLAYWRIGHT_MODULE` 為其 module 絕對路徑；使用已安裝嘅 Chrome 時，可設定 `PLAYWRIGHT_EXECUTABLE_PATH` 為瀏覽器 executable 絕對路徑。`test:ui` 自動使用本機 Auth／Firestore Emulator，建立兩個測試帳戶同長列表，啟動獨立 `localhost:3100`，驗證 320／375／768／1440 px、鍵盤捲動、狀態切換、關聯儲存／取消、關閉瀏覽器後登入保留、首頁跳轉、登出及帳戶隔離。亦會壓力測試 125 個目標、111 個細步驟、60 個分類、長文字、逾期／無期限、篩選、進度歷史、手機確認 sheet、200% 文字及失效圖片。截圖保存喺 `.next/ui-checks/`；測試唔寫入正式 Firebase。請先完成 browser tests 再跑 build，避免 build 清除 test server 嘅 Next cache。
 
 `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` 只喺 development 有效；必須配合 demo project 嘅 Web 設定及本機 emulators。`NEXT_DIST_DIR` 可為測試 server 指定另一個 build 目錄。
 

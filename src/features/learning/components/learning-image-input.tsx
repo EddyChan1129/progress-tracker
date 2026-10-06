@@ -27,7 +27,10 @@ export function LearningImageInput({
     event.currentTarget.value = "";
     if (selected.length === 0) return;
 
-    const message = validateLearningImages(selected, files.length + existingCount);
+    const message = validateLearningImages(
+      selected,
+      files.length + existingCount,
+    );
     setError(message ?? "");
     if (message) return;
 
@@ -37,32 +40,47 @@ export function LearningImageInput({
   return (
     <section aria-labelledby="learning-images-heading" className="space-y-3">
       <h2 className="text-sm font-medium" id="learning-images-heading">
-        圖片
+        圖片（可選）
       </h2>
-      <label className="sr-only" htmlFor="learning-images">選擇圖片</label>
+      <label className="sr-only" htmlFor="learning-images">
+        選擇圖片
+      </label>
       <input
         accept={LEARNING_IMAGE_TYPES.join(",")}
         aria-describedby="learning-images-help learning-images-error"
         aria-invalid={Boolean(error)}
-        className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:bg-background file:px-3 file:py-2 disabled:opacity-50"
+        className="block min-h-11 w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border file:bg-card file:px-3 file:py-2.5 file:text-sm file:font-medium disabled:opacity-50"
         disabled={disabled}
         id="learning-images"
         multiple
         onChange={handleSelect}
         type="file"
       />
-      <p className="text-sm text-muted-foreground" id="learning-images-help">
-        JPEG、PNG、WebP；每張最多 4 MiB，每筆最多 5 張。已選 {files.length + existingCount}/5 張。
+      <p
+        className="text-xs leading-6 text-muted-foreground"
+        id="learning-images-help"
+      >
+        JPEG、PNG、WebP；每張最多 4 MiB，每筆最多 5 張。已選{" "}
+        {files.length + existingCount}/5 張。
         按儲存後先會上傳；儲存前重新整理會清除選擇。
       </p>
-      <p className="text-sm text-destructive" id="learning-images-error" role="alert">
+      <p
+        className="text-sm text-destructive empty:hidden"
+        id="learning-images-error"
+        role="alert"
+      >
         {error}
       </p>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {files.map((file, index) => (
-          <li className="min-w-0 space-y-2 rounded-lg border p-3" key={index}>
+          <li className="min-w-0 space-y-2" key={index}>
             <ImagePreview file={file} />
-            <p className="break-all text-xs">{file.name}</p>
+            <p
+              className="truncate text-xs text-muted-foreground"
+              title={file.name}
+            >
+              {file.name}
+            </p>
             <Button
               aria-label={`移除第 ${index + 1} 張圖片：${file.name}`}
               disabled={disabled}
@@ -94,6 +112,12 @@ function ImagePreview({ file }: { file: File }) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // eslint-disable-next-line @next/next/no-img-element -- 本機 blob URL 預覽，不需要 Next 圖片最佳化。
-  return <img alt={`預覽：${file.name}`} className="h-32 w-full rounded object-contain" ref={imageRef} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- 本機 blob URL 預覽，不需要 Next 圖片最佳化。
+    <img
+      alt={`預覽：${file.name}`}
+      className="h-32 w-full rounded object-contain"
+      ref={imageRef}
+    />
+  );
 }

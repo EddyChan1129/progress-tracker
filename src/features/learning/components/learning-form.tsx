@@ -22,10 +22,18 @@ import { getLearningEntry } from "@/features/learning/services/learning.service"
 import { getGoals } from "@/features/goals/services/goal.service";
 import type { Goal } from "@/features/goals/types/goal.types";
 
-import { saveLearningEntryWithImages, cleanupLearningImages, type ImageSaveAttempt } from "@/features/learning/services/learning-image.service";
+import {
+  saveLearningEntryWithImages,
+  cleanupLearningImages,
+  type ImageSaveAttempt,
+} from "@/features/learning/services/learning-image.service";
 import { getCurrentUserId } from "@/features/auth/services/auth.service";
 import { LearningImages } from "@/features/learning/components/learning-images";
-import type { LearningEntry, LearningImage } from "@/features/learning/types/learning.types";
+import type {
+  LearningEntry,
+  LearningImage,
+} from "@/features/learning/types/learning.types";
+import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/feedback";
 
 function getToday() {
   return toDateInputValue(new Date());
@@ -113,16 +121,25 @@ export function LearningForm({ entryId }: { entryId?: string }) {
 
     try {
       imageAttempt.current ??= {
-        id: entryId ?? crypto.randomUUID(), userId: getCurrentUserId(), uploads: new Map(),
-        ...(entryId ? {
-          operationId: crypto.randomUUID(),
-          expectedUpdatedAt: originalEntry.current!.updatedAt.getTime(),
-          startedAt: originalEntry.current!.createdAt.toISOString(),
-        } : {}),
+        id: entryId ?? crypto.randomUUID(),
+        userId: getCurrentUserId(),
+        uploads: new Map(),
+        ...(entryId
+          ? {
+              operationId: crypto.randomUUID(),
+              expectedUpdatedAt: originalEntry.current!.updatedAt.getTime(),
+              startedAt: originalEntry.current!.createdAt.toISOString(),
+            }
+          : {}),
       };
       // 成功與否未確認前，只重試同一份資料同 operationId。
       setImageRetryPending(true);
-      const result = await saveLearningEntryWithImages(input, imageFiles, imageAttempt.current, savedImages);
+      const result = await saveLearningEntryWithImages(
+        input,
+        imageFiles,
+        imageAttempt.current,
+        savedImages,
+      );
       imageAttempt.current = null;
       setImageFiles([]);
       setImageRetryPending(false);
@@ -130,7 +147,11 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         router.push("/learning");
         return;
       }
-      setSuccessMessage(result.cleanupPending ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。" : "學習記錄已新增。");
+      setSuccessMessage(
+        result.cleanupPending
+          ? "記錄已新增；部分圖片清理待重試，可到學習記錄列表處理。"
+          : "學習記錄已新增。",
+      );
       reset({
         title: "",
         content: "",
@@ -140,9 +161,11 @@ export function LearningForm({ entryId }: { entryId?: string }) {
       });
     } catch (error) {
       // 400 已確認冇儲存，容許修正輸入；未知結果繼續鎖住並重試原操作。
-      if (error instanceof Error && "status" in error && error.status === 400) setImageRetryPending(false);
+      if (error instanceof Error && "status" in error && error.status === 400)
+        setImageRetryPending(false);
       setError("root", {
-        message: error instanceof Error ? error.message : "儲存失敗，請再試一次。",
+        message:
+          error instanceof Error ? error.message : "儲存失敗，請再試一次。",
       });
     }
   }
@@ -153,50 +176,55 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     setCancelPending(true);
     try {
       // 舊圖只喺本機移除；取消時只清理今次新上傳嘅圖。
-      const result = await cleanupLearningImages([...imageAttempt.current?.uploads.values() ?? []]);
-      if (result.cleanupPending) throw new Error("圖片仍待清理，請按「重試取消」。");
+      const result = await cleanupLearningImages([
+        ...(imageAttempt.current?.uploads.values() ?? []),
+      ]);
+      if (result.cleanupPending)
+        throw new Error("圖片仍待清理，請按「重試取消」。");
       router.push("/learning");
     } catch (error) {
-      setError("root", { message: error instanceof Error ? error.message : "取消失敗，請再試。" });
+      setError("root", {
+        message: error instanceof Error ? error.message : "取消失敗，請再試。",
+      });
     } finally {
       setIsCancelling(false);
     }
   }
 
   if (isLoading) {
-    return (
-      <p className="mt-8 text-sm text-muted-foreground" role="status">
-        載入資料中…
-      </p>
-    );
+    return <ListSkeleton label="載入資料中…" />;
   }
 
   if (loadError) {
-    return (
-      <p className="mt-8 text-sm text-destructive" role="alert">
-        {loadError}
-      </p>
-    );
+    return <ErrorState message={loadError} />;
   }
 
   if (categories.length === 0) {
     return (
-      <div className="mt-8 max-w-lg space-y-4 rounded-xl border bg-card p-6">
-        <p>新增學習記錄前，請先建立至少一個分類。</p>
-        <Button asChild variant="outline">
-          <Link href="/categories">先新增分類</Link>
-        </Button>
-      </div>
+      <EmptyState
+        title="先建立一個分類"
+        description="新增學習記錄前，請先建立至少一個分類。"
+        action={
+          <Button asChild variant="outline">
+            <Link href="/categories">先新增分類</Link>
+          </Button>
+        }
+      />
     );
   }
 
   return (
     <form
-      className="mt-7 max-w-3xl space-y-5 rounded-2xl border bg-card p-4 sm:p-7"
+      className="editor-form space-y-6"
       noValidate
-      onSubmit={(event) => { void handleSubmit(onSubmit)(event); }}
+      onSubmit={(event) => {
+        void handleSubmit(onSubmit)(event);
+      }}
     >
-      <fieldset disabled={isSubmitting || imageRetryPending || cancelPending} className="space-y-5">
+      <fieldset
+        disabled={isSubmitting || imageRetryPending || cancelPending}
+        className="space-y-5"
+      >
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="learning-title">
             標題
@@ -225,7 +253,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
               errors.content ? "learning-content-error" : undefined
             }
             aria-invalid={Boolean(errors.content)}
-            className="h-52 min-h-40 max-h-96 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+            className="min-h-48 leading-7"
             id="learning-content"
             placeholder={"例如：\n\n```js\nconst seen = new Map();\n```"}
             {...register("content")}
@@ -238,14 +266,17 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         </div>
 
         {content.trim() ? (
-          <section aria-labelledby="learning-preview-heading" className="space-y-3">
-            <h2 className="text-sm font-medium" id="learning-preview-heading">
-              預覽
-            </h2>
-            <ScrollPanel label="學習內容預覽" className="max-h-64 rounded-lg border bg-background p-4">
+          <details className="border-b pb-3">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">
+              預覽學習內容
+            </summary>
+            <ScrollPanel
+              label="學習內容預覽"
+              className="max-h-64 border-l-2 pl-4"
+            >
               <MarkdownContent content={content} />
             </ScrollPanel>
-          </section>
+          </details>
         ) : null}
 
         <div className="space-y-2">
@@ -257,7 +288,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
               errors.categoryId ? "learning-category-error" : undefined
             }
             aria-invalid={Boolean(errors.categoryId)}
-            className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+
             id="learning-category"
             {...register("categoryId")}
           >
@@ -270,21 +301,47 @@ export function LearningForm({ entryId }: { entryId?: string }) {
             ))}
           </select>
           {errors.categoryId ? (
-            <p className="text-sm text-destructive" id="learning-category-error">
+            <p
+              className="text-sm text-destructive"
+              id="learning-category-error"
+            >
               {errors.categoryId.message}
             </p>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="learning-goal">關聯大目標（可選）</label>
-          <select id="learning-goal" className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            aria-invalid={Boolean(errors.relatedGoalId)} aria-describedby={errors.relatedGoalId ? "learning-goal-error" : "learning-goal-hint"} {...register("relatedGoalId")}>
+          <label className="text-sm font-medium" htmlFor="learning-goal">
+            關聯大目標（可選）
+          </label>
+          <select
+            id="learning-goal"
+            aria-invalid={Boolean(errors.relatedGoalId)}
+            aria-describedby={
+              errors.relatedGoalId
+                ? "learning-goal-error"
+                : "learning-goal-hint"
+            }
+            {...register("relatedGoalId")}
+          >
             <option value="">不關聯目標</option>
-            {goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}
+            {goals.map((goal) => (
+              <option key={goal.id} value={goal.id}>
+                {goal.title}
+              </option>
+            ))}
           </select>
-          <p id="learning-goal-hint" className="text-xs leading-5 text-muted-foreground">將呢次學習連結到一個目標；細目標進度需要另外更新。</p>
-          {errors.relatedGoalId ? <p id="learning-goal-error" className="text-sm text-destructive">{errors.relatedGoalId.message}</p> : null}
+          <p
+            id="learning-goal-hint"
+            className="text-xs leading-5 text-muted-foreground"
+          >
+            將呢次學習連結到一個目標；細目標進度需要另外更新。
+          </p>
+          {errors.relatedGoalId ? (
+            <p id="learning-goal-error" className="text-sm text-destructive">
+              {errors.relatedGoalId.message}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -307,9 +364,26 @@ export function LearningForm({ entryId }: { entryId?: string }) {
           ) : null}
         </div>
 
-        <LearningImages images={savedImages} onRemove={(id) => setSavedImages((images) => images.filter((image) => image.publicId !== id))} disabled={isSubmitting || imageRetryPending || cancelPending} />
-        {isEditing ? <p className="text-sm text-muted-foreground">移除圖片後，按「儲存修改」先會正式刪除。取消會保留原本圖片。</p> : null}
-        <LearningImageInput disabled={isSubmitting || imageRetryPending || cancelPending} files={imageFiles} onChange={setImageFiles} existingCount={savedImages.length} />
+        <LearningImages
+          images={savedImages}
+          onRemove={(id) =>
+            setSavedImages((images) =>
+              images.filter((image) => image.publicId !== id),
+            )
+          }
+          disabled={isSubmitting || imageRetryPending || cancelPending}
+        />
+        {isEditing && savedImages.length ? (
+          <p className="text-xs text-muted-foreground">
+            移除圖片後，按「儲存修改」先會正式刪除。取消會保留原本圖片。
+          </p>
+        ) : null}
+        <LearningImageInput
+          disabled={isSubmitting || imageRetryPending || cancelPending}
+          files={imageFiles}
+          onChange={setImageFiles}
+          existingCount={savedImages.length}
+        />
       </fieldset>
       {imageRetryPending && !isSubmitting ? (
         <p className="text-sm text-muted-foreground" role="status">
@@ -317,25 +391,34 @@ export function LearningForm({ entryId }: { entryId?: string }) {
         </p>
       ) : null}
 
-      <Button disabled={isSubmitting || cancelPending} type="submit">
-        {isSubmitting
-          ? isEditing
-            ? "儲存中…"
-            : "新增中…"
-          : imageRetryPending
-            ? "重試儲存"
-          : isEditing
-            ? "儲存修改"
-            : "新增學習記錄"}
-      </Button>
+      <div className="form-actions">
+        <Button disabled={isSubmitting || cancelPending} type="submit">
+          {isSubmitting
+            ? isEditing
+              ? "儲存中…"
+              : "新增中…"
+            : imageRetryPending
+              ? "重試儲存"
+              : isEditing
+                ? "儲存修改"
+                : "新增學習記錄"}
+        </Button>
 
-      <Button className="ml-2" variant="outline" type="button" disabled={isSubmitting || isCancelling} onClick={handleCancel}>
-        {isCancelling ? "清理中…" : cancelPending ? "重試取消" : "取消"}
-      </Button>
+        <Button
+          variant="outline"
+          type="button"
+          disabled={isSubmitting || isCancelling}
+          onClick={handleCancel}
+        >
+          {isCancelling ? "清理中…" : cancelPending ? "重試取消" : "取消"}
+        </Button>
+      </div>
 
       <div aria-live="polite">
         {errors.root ? (
-          <p className="text-sm text-destructive">{errors.root.message}</p>
+          <p role="alert" className="text-sm text-destructive">
+            {errors.root.message}
+          </p>
         ) : null}
         {successMessage ? (
           <p className="text-sm text-emerald-700">{successMessage}</p>
