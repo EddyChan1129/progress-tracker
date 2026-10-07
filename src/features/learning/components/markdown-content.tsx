@@ -1,3 +1,4 @@
+import { CodeBlock } from "./code-block";
 import ReactMarkdown from "react-markdown";
 
 import {
@@ -11,6 +12,23 @@ export function MarkdownContent({ content }: { content: string }) {
       <ReactMarkdown
         allowedElements={allowedMarkdownElements}
         components={{
+          pre({ node, children }) {
+            const codeNode = node?.children[0];
+            if (codeNode?.type !== "element" || codeNode.tagName !== "code")
+              return <pre>{children}</pre>;
+            const code = codeNode.children
+              .map((child) => (child.type === "text" ? child.value : ""))
+              .join("");
+            const classes = codeNode.properties.className;
+            const language = Array.isArray(classes)
+              ? String(
+                  classes.find((name) =>
+                    String(name).startsWith("language-"),
+                  ) ?? "",
+                ).replace(/^language-/, "")
+              : "";
+            return <CodeBlock code={code} language={language} />;
+          },
           a({ children, href, title }) {
             if (!href) return <span>{children}</span>;
 

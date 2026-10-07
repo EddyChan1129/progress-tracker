@@ -170,7 +170,7 @@ export function GoalForm({ goalId }: { goalId?: string }) {
           <Input
             id="goal-title"
             maxLength={100}
-            placeholder="例如：成為冷氣師傅、改善英文 speaking"
+            placeholder="你想達成甚麼？"
             aria-invalid={Boolean(errors.title)}
             aria-describedby={errors.title ? "goal-title-error" : undefined}
             {...register("title")}
@@ -190,7 +190,7 @@ export function GoalForm({ goalId }: { goalId?: string }) {
             id="goal-description"
             rows={4}
             maxLength={2000}
-            placeholder="例如：學識安裝、保養同維修冷氣。"
+            placeholder="補充目標的方向或細節…"
 
             aria-invalid={Boolean(errors.description)}
             aria-describedby={

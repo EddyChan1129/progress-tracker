@@ -325,6 +325,33 @@ try {
   await assertFits(page, 320);
   await page.goto(`${baseUrl}/learning/new`);
   await page.getByLabel("標題", { exact: true }).waitFor();
+  const codeInput = page.getByLabel("學習內容", { exact: true });
+  const exampleCode = 'const message = "hello";\n' + "// long line ".repeat(80);
+  await codeInput.fill(exampleCode);
+  await codeInput.evaluate((element) =>
+    element.setSelectionRange(0, element.value.length),
+  );
+  await page.getByRole("button", { name: "插入 code", exact: true }).click();
+  assert.equal(await codeInput.inputValue(), "```js\n" + exampleCode + "\n```");
+  await page.getByText("預覽學習內容", { exact: true }).click();
+  assert.ok((await page.locator(".code-block .hljs-keyword").count()) > 0);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value) => {
+          window.__copiedCode = value;
+        },
+      },
+    });
+  });
+  await page.getByRole("button", { name: "複製程式碼", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "已複製" }).waitFor();
+  assert.equal(
+    await page.evaluate(() => window.__copiedCode),
+    exampleCode + "\n",
+  );
+  await assertFits(page, 320);
   await page.getByLabel("標題", { exact: true }).fill("UI 驗收記錄");
   await page
     .getByLabel("學習內容", { exact: true })
@@ -357,6 +384,37 @@ try {
   await page.goto(`${baseUrl}/categories`);
   await page.getByRole("region", { name: "分類列表" }).waitFor();
   await assertFits(page, 320);
+  await page.getByLabel("名稱", { exact: true }).fill("圖示選擇測試");
+  await page.getByRole("button", { name: "程式", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("自訂 emoji", { exact: true }).inputValue(),
+    "💻",
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "程式", exact: true })
+      .getAttribute("aria-pressed"),
+    "true",
+  );
+  await page.getByRole("button", { name: "不使用圖示", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("自訂 emoji", { exact: true }).inputValue(),
+    "",
+  );
+  await page.getByRole("button", { name: "閱讀", exact: true }).click();
+  await assertFits(page, 320);
+  await page.getByRole("button", { name: "新增分類", exact: true }).click();
+  await page.getByText("分類已新增。", { exact: true }).waitFor();
+  const iconCategory = await owner
+    .collection("categories")
+    .where("name", "==", "圖示選擇測試")
+    .get();
+  assert.equal(iconCategory.docs[0].data().icon, "📚");
+  assert.equal(
+    await page.getByLabel("自訂 emoji", { exact: true }).inputValue(),
+    "",
+  );
+  await iconCategory.docs[0].ref.delete();
   // Dialogs and deletion only affect the emulator fixtures created above.
   async function confirmClick(button, expectedText, accept = true) {
     await button.click();

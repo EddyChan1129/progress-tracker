@@ -12,6 +12,7 @@ import { ScrollPanel } from "@/components/ui/scroll-panel";
 import { toDateInputValue } from "@/lib/date-input";
 import { getCategories } from "@/features/categories/services/category.service";
 import type { Category } from "@/features/categories/types/category.types";
+import { insertCodeBlock } from "@/features/learning/code-block";
 import { MarkdownContent } from "@/features/learning/components/markdown-content";
 import { LearningImageInput } from "@/features/learning/components/learning-image-input";
 import {
@@ -60,6 +61,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LearningEntryInput>({
     resolver: zodResolver(learningEntrySchema, undefined, { raw: true }),
@@ -71,6 +73,9 @@ export function LearningForm({ entryId }: { entryId?: string }) {
       learnedAt: getToday(),
     },
   });
+  const contentInput = useRef<HTMLTextAreaElement | null>(null);
+  const [codeLanguage, setCodeLanguage] = useState("js");
+  const contentField = register("content");
   const content = useWatch({ control, name: "content" });
 
   useEffect(() => {
@@ -234,7 +239,7 @@ export function LearningForm({ entryId }: { entryId?: string }) {
             aria-invalid={Boolean(errors.title)}
             id="learning-title"
             maxLength={100}
-            placeholder="例如：Two Sum"
+            placeholder="為這次學習命名"
             {...register("title")}
           />
           {errors.title ? (
@@ -248,6 +253,49 @@ export function LearningForm({ entryId }: { entryId?: string }) {
           <label className="text-sm font-medium" htmlFor="learning-content">
             學習內容
           </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="程式碼語言"
+              className="!w-auto !py-1"
+              value={codeLanguage}
+              onChange={(event) => setCodeLanguage(event.target.value)}
+            >
+              <option value="js">JavaScript</option>
+              <option value="ts">TypeScript</option>
+              <option value="python">Python</option>
+              <option value="json">JSON</option>
+              <option value="css">CSS</option>
+              <option value="html">HTML</option>
+              <option value="sql">SQL</option>
+              <option value="bash">Shell</option>
+              <option value="text">純文字</option>
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const input = contentInput.current;
+                if (!input) return;
+                const result = insertCodeBlock(
+                  input.value,
+                  input.selectionStart,
+                  input.selectionEnd,
+                  codeLanguage,
+                );
+                setValue("content", result.content, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                requestAnimationFrame(() => {
+                  input.focus();
+                  input.setSelectionRange(result.start, result.end);
+                });
+              }}
+            >
+              插入 code
+            </Button>
+          </div>
           <textarea
             aria-describedby={
               errors.content ? "learning-content-error" : undefined
@@ -255,8 +303,12 @@ export function LearningForm({ entryId }: { entryId?: string }) {
             aria-invalid={Boolean(errors.content)}
             className="min-h-48 leading-7"
             id="learning-content"
-            placeholder={"例如：\n\n```js\nconst seen = new Map();\n```"}
-            {...register("content")}
+            placeholder="記下重點、想法或心得…"
+            {...contentField}
+            ref={(element) => {
+              contentField.ref(element);
+              contentInput.current = element;
+            }}
           />
           {errors.content ? (
             <p className="text-sm text-destructive" id="learning-content-error">

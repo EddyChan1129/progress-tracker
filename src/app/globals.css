@@ -444,3 +444,26 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Quiet syntax colors; highlight.js escapes source before adding token spans. */
+.code-block .hljs-keyword,
+.code-block .hljs-selector-tag,
+.code-block .hljs-literal {
+  color: #80549a;
+}
+.code-block .hljs-string,
+.code-block .hljs-attr {
+  color: #31715c;
+}
+.code-block .hljs-number,
+.code-block .hljs-symbol {
+  color: #9b5a2c;
+}
+.code-block .hljs-title,
+.code-block .hljs-built_in {
+  color: #356b99;
+}
+.code-block .hljs-comment {
+  color: #68736d;
+  font-style: italic;
+}

@@ -82,7 +82,7 @@ export function SubGoalFields({
         <Input
           id={`${id}-title`}
           maxLength={100}
-          placeholder={kind === "count" ? "例如：學單字" : "例如：搵老師"}
+          placeholder="下一步要做甚麼？"
           aria-invalid={Boolean(titleError)}
           aria-describedby={titleError ? `${id}-title-error` : undefined}
           {...register(`subGoals.${index}.title`)}
@@ -151,7 +151,7 @@ export function SubGoalFields({
               id={`${id}-unit`}
               readOnly={measurementLocked}
               maxLength={20}
-              placeholder="例如：個、章、次"
+              placeholder="次、頁、分鐘"
               aria-invalid={Boolean(unitError)}
               aria-describedby={unitError ? `${id}-unit-error` : undefined}
               {...register(unitPath)}
